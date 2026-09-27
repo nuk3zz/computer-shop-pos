@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Plus, 
@@ -14,9 +13,6 @@ import {
   Trash2,
   Table,
   Grid3X3,
-  DollarSign,
-  Clock,
-  Boxes
 } from 'lucide-react'
 import apiClient from '@/api/client'
 import { toastHelpers } from '@/lib/toast-helpers'
@@ -244,10 +240,10 @@ export function AdminMenuManagement() {
         </div>
 
         {/* Products Tab */}
-        <TabsContent value="products" className="space-y-6">
+        <TabsContent value="products" className="space-y-4">
           {/* Search and Add Product */}
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -304,69 +300,49 @@ export function AdminMenuManagement() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
                 {products.map((product: Product) => (
-                  <Card key={product.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3 flex-1">
-                          <div className="flex-shrink-0">
+                  <Card key={product.id} className="shadow-none transition-colors hover:border-slate-400">
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
                             {product.image_url ? (
                               <img 
                                 src={getMediaUrl(product.image_url)}
                                 alt={product.name}
-                                className="h-12 w-12 rounded-lg object-cover"
+                                className="h-14 w-14 rounded-md object-cover"
                               />
                             ) : (
-                              <div className="h-12 w-12 rounded-lg bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center">
-                                <Package className="h-6 w-6 text-white" />
+                              <div className="flex h-14 w-14 items-center justify-center rounded-md bg-slate-100">
+                                <Package className="h-6 w-6 text-slate-400" />
                               </div>
                             )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-medium text-gray-900 truncate">{product.name}</h3>
-                            <p className="text-sm text-gray-500 line-clamp-2">
-                              {product.description || "No description"}
-                            </p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="outline" className="text-green-600">
-                                <DollarSign className="w-3 h-3 mr-1" />
-                                {formatMoney(product.price)}
-                              </Badge>
-                              <Badge variant="outline">Cost {formatMoney(product.cost_price)}</Badge>
-                              <Badge variant="outline" className="text-emerald-700">Profit {formatMoney(product.price - product.cost_price)}</Badge>
-                              {product.item_type === 'product' && (
-                                <Badge variant="outline">
-                                  <Boxes className="w-3 h-3 mr-1" />
-                                  {product.stock_quantity} in stock
-                                </Badge>
-                              )}
-                              {product.preparation_time > 0 && (
-                                <Badge variant="outline" className="text-blue-600">
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  {Math.max(1, Math.ceil(product.preparation_time / 1440))} {Math.ceil(product.preparation_time / 1440) === 1 ? 'day' : 'days'} service
-                                </Badge>
-                              )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="truncate text-sm font-semibold text-slate-900">{product.name}</h3>
+                              <p className="truncate text-xs text-muted-foreground">{product.description || 'No description'}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center">
+                              <Button size="icon" variant="ghost" onClick={() => setEditingProduct(product)} className="h-7 w-7" aria-label={`Edit ${product.name}`}>
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => handleDeleteProduct(product)} className="h-7 w-7 text-red-600 hover:text-red-700" aria-label={`Delete ${product.name}`}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col space-y-1 ml-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingProduct(product)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteProduct(product)}
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:border-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t pt-2 text-xs">
+                            <div><span className="text-muted-foreground">Sell</span> <span className="font-semibold">{formatMoney(product.price)}</span></div>
+                            <div><span className="text-muted-foreground">Cost</span> <span className="font-medium">{formatMoney(product.cost_price)}</span></div>
+                            <div><span className="text-muted-foreground">Profit</span> <span className="font-medium text-emerald-700">{formatMoney(product.price - product.cost_price)}</span></div>
+                            <div className="text-right sm:text-left">
+                              <span className="text-muted-foreground">{product.item_type === 'product' ? 'Stock' : 'Duration'}</span>{' '}
+                              <span className="font-medium">{product.item_type === 'product' ? product.stock_quantity : `${Math.max(1, Math.ceil(product.preparation_time / 1440))}d`}</span>
+                            </div>
+                          </div>
+                          <div className="mt-1.5 truncate text-[11px] text-muted-foreground">{product.category?.name || 'Uncategorized'} · {product.item_type === 'product' ? 'Product' : 'Service'}</div>
                         </div>
                       </div>
                     </CardContent>

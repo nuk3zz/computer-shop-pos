@@ -132,3 +132,17 @@
 - Runtime API checks also proved manual client creation and editing of name, phone, email, notes, and photo reference; only exact temporary verification rows were removed.
 - Browser inspection confirmed Physical Product shows Quantity in Stock without duration, Service / Repair shows one-day-minimum duration without stock, and Manage Clients exposes the complete Add Client form.
 - A verified pre-migration recovery backup is available at `backups/self-host/*20260927-220817*`.
+
+## 2026-09-28 - Compact sales and catalog cards
+
+### Worked
+
+- Removed forced minimum heights from sales-card title, description, metadata, and action sections.
+- Changed sales thumbnails from 4:3 to 16:10, reduced typography and padding, collapsed category/type/stock/duration into one metadata line, and tightened the width range to 130-220 pixels.
+- Replaced catalog-card metric pills with a plain two-column operational summary and changed decorative gradient placeholders to neutral inventory styling.
+- Reduced catalog search-container padding, card gaps, thumbnail size, and edit/delete controls while retaining all price, cost, profit, stock/duration, category, and type information.
+
+### Verification
+
+- TypeScript checking and the production Vite build pass.
+- Browser inspection against the real H81 item confirmed a substantially shorter sales tile and a compact catalog card with no large internal blank area.

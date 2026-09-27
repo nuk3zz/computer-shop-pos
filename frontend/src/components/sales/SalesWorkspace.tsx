@@ -10,7 +10,7 @@ import { getMediaUrl } from '@/lib/media'
 import { formatMoney } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
 import type { Customer, Product } from '@/types'
-import { Check, Clock, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, X, ZoomIn } from 'lucide-react'
+import { Check, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, X, ZoomIn } from 'lucide-react'
 
 interface CartLine {
   product: Product
@@ -27,7 +27,7 @@ export function SalesWorkspace() {
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false)
   const [deviceNotes, setDeviceNotes] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
-  const [tileSize, setTileSize] = useState(180)
+  const [tileSize, setTileSize] = useState(150)
   const queryClient = useQueryClient()
 
   const { data: categories = [] } = useQuery({
@@ -130,7 +130,7 @@ export function SalesWorkspace() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <ZoomIn className="h-4 w-4" /> Card width
-              <input type="range" min="150" max="260" step="10" value={tileSize} onChange={(event) => setTileSize(Number(event.target.value))} className="w-28" />
+              <input type="range" min="130" max="220" step="10" value={tileSize} onChange={(event) => setTileSize(Number(event.target.value))} className="w-24" />
             </label>
             <div className="flex rounded-lg border bg-slate-50 p-1">
               <Button variant={orderType === 'sale' ? 'default' : 'ghost'} onClick={() => setOrderType('sale')} className="gap-2">
@@ -187,38 +187,33 @@ export function SalesWorkspace() {
               {filteredProducts.map((product) => {
                 const quantity = cart.find((line) => line.product.id === product.id)?.quantity || 0
                 return (
-                  <Card key={product.id} className="flex h-full flex-col overflow-hidden transition-shadow hover:shadow-md">
-                    <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                  <Card key={product.id} className="flex h-full flex-col overflow-hidden shadow-sm transition-colors hover:border-slate-400">
+                    <div className="aspect-[16/10] overflow-hidden bg-slate-100">
                       {product.image_url ? (
                         <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center">
-                          <Package className="h-14 w-14 text-slate-300" />
+                          <Package className="h-9 w-9 text-slate-300" />
                         </div>
                       )}
                     </div>
-                    <CardContent className="flex flex-1 flex-col p-3">
-                      <h2 className="min-h-10 line-clamp-2 font-semibold leading-5">{product.name}</h2>
-                      <div className="mt-1 text-base font-bold">{formatMoney(product.price)}</div>
-                      <p className="mt-1 min-h-10 line-clamp-2 text-xs leading-5 text-muted-foreground">{product.description || 'No description'}</p>
-                      <div className="mt-2 flex min-h-12 flex-wrap content-start items-center gap-1.5 text-xs">
-                        {product.category && <span className="w-full truncate text-muted-foreground">{product.category.name}</span>}
-                        <Badge variant={product.item_type === 'service' ? 'default' : 'secondary'}>{product.item_type === 'service' ? 'Service' : 'Product'}</Badge>
-                        {product.preparation_time > 0 && (
-                          <Badge variant="secondary" className="gap-1">
-                            <Clock className="h-3 w-3" /> {Math.max(1, Math.ceil(product.preparation_time / 1440))} {Math.ceil(product.preparation_time / 1440) === 1 ? 'day' : 'days'}
-                          </Badge>
-                        )}
+                    <CardContent className="flex flex-1 flex-col p-2.5">
+                      <h2 className="line-clamp-2 text-sm font-semibold leading-4">{product.name}</h2>
+                      <div className="mt-1 text-sm font-bold">{formatMoney(product.price)}</div>
+                      {product.description && <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{product.description}</p>}
+                      <div className="mt-1.5 truncate text-[11px] text-muted-foreground">
+                        {product.category?.name || 'Uncategorized'} · {product.item_type === 'service' ? 'Service' : `${product.stock_quantity} in stock`}
+                        {product.preparation_time > 0 && ` · ${Math.max(1, Math.ceil(product.preparation_time / 1440))}d`}
                       </div>
-                      <div className="mt-auto flex min-h-10 items-center justify-end gap-2 pt-3">
+                      <div className="mt-auto flex items-center justify-end gap-1.5 pt-2">
                         {quantity > 0 && (
                           <>
-                            <Button variant="outline" size="icon" onClick={() => removeFromCart(product.id)}><Minus className="h-4 w-4" /></Button>
-                            <span className="w-6 text-center font-semibold">{quantity}</span>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => removeFromCart(product.id)}><Minus className="h-3.5 w-3.5" /></Button>
+                            <span className="w-5 text-center text-sm font-semibold">{quantity}</span>
                           </>
                         )}
-                        <Button size={quantity > 0 ? 'icon' : 'default'} onClick={() => addToCart(product)} disabled={!product.is_available}>
-                          <Plus className="h-4 w-4" />{quantity === 0 && <span className="ml-2">Add</span>}
+                        <Button size="sm" className={quantity > 0 ? 'h-8 w-8 p-0' : 'h-8 px-3'} onClick={() => addToCart(product)} disabled={!product.is_available}>
+                          <Plus className="h-3.5 w-3.5" />{quantity === 0 && <span className="ml-1.5">Add</span>}
                         </Button>
                       </div>
                     </CardContent>
