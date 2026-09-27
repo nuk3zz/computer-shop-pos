@@ -337,7 +337,7 @@ export function AdminMenuManagement() {
                               {product.preparation_time > 0 && (
                                 <Badge variant="outline" className="text-blue-600">
                                   <Clock className="w-3 h-3 mr-1" />
-                                  {product.preparation_time} min service
+                                  {Math.max(1, Math.ceil(product.preparation_time / 1440))} {Math.ceil(product.preparation_time / 1440) === 1 ? 'day' : 'days'} service
                                 </Badge>
                               )}
                             </div>

@@ -52,6 +52,20 @@ type Product struct {
 	Category        *Category  `json:"category,omitempty"`
 }
 
+// Customer represents a reusable client record and its sales summary.
+type Customer struct {
+	ID         uuid.UUID  `json:"id"`
+	Name       string     `json:"name"`
+	Phone      string     `json:"phone"`
+	Email      *string    `json:"email"`
+	Notes      *string    `json:"notes"`
+	OrderCount int        `json:"order_count"`
+	TotalSpent float64    `json:"total_spent"`
+	LastVisit  *time.Time `json:"last_visit"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
 // DiningTable represents a table or dining area
 type DiningTable struct {
 	ID              uuid.UUID `json:"id"`
@@ -69,6 +83,7 @@ type Order struct {
 	OrderNumber    string       `json:"order_number"`
 	TableID        *uuid.UUID   `json:"table_id"`
 	UserID         *uuid.UUID   `json:"user_id"`
+	CustomerID     *uuid.UUID   `json:"customer_id"`
 	CustomerName   *string      `json:"customer_name"`
 	CustomerPhone  *string      `json:"customer_phone"`
 	OrderType      string       `json:"order_type"` // sale, service
@@ -149,6 +164,7 @@ type OrderStatusHistory struct {
 // CreateOrderRequest represents the request to create a new order
 type CreateOrderRequest struct {
 	TableID       *uuid.UUID        `json:"table_id"`
+	CustomerID    *uuid.UUID        `json:"customer_id"`
 	CustomerName  *string           `json:"customer_name"`
 	CustomerPhone *string           `json:"customer_phone"`
 	OrderType     string            `json:"order_type"`

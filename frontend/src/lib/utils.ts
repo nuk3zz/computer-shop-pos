@@ -82,17 +82,6 @@ export function calculateOrderTotals(items: Array<{ quantity: number; unit_price
   }
 }
 
-export function getPreparationTimeDisplay(minutes: number): string {
-  if (minutes === 0) return 'No prep time'
-  if (minutes < 60) return `${minutes}m`
-  
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  
-  if (remainingMinutes === 0) return `${hours}h`
-  return `${hours}h ${remainingMinutes}m`
-}
-
 export function generateOrderNumber(): string {
   const timestamp = Date.now()
   const random = Math.floor(Math.random() * 1000)

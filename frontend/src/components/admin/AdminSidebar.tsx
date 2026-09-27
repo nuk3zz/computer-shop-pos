@@ -10,6 +10,7 @@ import {
   Settings,
   BarChart3,
   UserCog,
+  UsersRound,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
@@ -47,6 +48,13 @@ const adminSections = [
     icon: <PackageSearch className="w-5 h-5" />,
     description: 'Products, services, and categories',
     href: '/admin/catalog'
+  },
+  {
+    id: 'clients',
+    label: 'Manage Clients',
+    icon: <UsersRound className="w-5 h-5" />,
+    description: 'Client directory and purchase history',
+    href: '/admin/clients'
   },
   {
     id: 'staff',

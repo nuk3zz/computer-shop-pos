@@ -29,7 +29,7 @@ The temporary product name is **Computer Shop POS**. Do not invent a shop or cus
 - Preserve the upstream MIT license and fork attribution.
 - Backend: Go, Gin, PostgreSQL, raw parameterized SQL. Keep handlers thin and transactions atomic.
 - Frontend: React and TypeScript. Prefer shared domain types and reusable components; avoid `any` in new code.
-- Database: use additive, rerunnable migrations for existing installations. Seed data must demonstrate the computer-shop domain and must not contain real customer data.
+- Database: use additive, rerunnable migrations for existing installations. New installations must start without sample business data; seed only the secured bootstrap administrator.
 - Money: use fixed-precision database values. Do not use floating-point arithmetic for new financial calculations when correctness matters.
 - Inventory: distinguish stock-tracked products from non-stock services. Record cost snapshots on sale lines so historical profit does not change when supplier costs change.
 - Workflows: store stable status keys separately from editable display labels. Business owners may rename labels, but code must not depend on display text.

@@ -76,11 +76,25 @@ export interface Product {
   category?: Category;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  notes?: string;
+  order_count: number;
+  total_spent: number;
+  last_visit?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Order Types
 export interface Order {
   id: string;
   order_number: string;
   user_id?: string;
+  customer_id?: string;
   customer_name?: string;
   customer_phone?: string;
   order_type: 'sale' | 'service';
@@ -116,6 +130,7 @@ export interface OrderItem {
 }
 
 export interface CreateOrderRequest {
+  customer_id?: string;
   customer_name?: string;
   customer_phone?: string;
   order_type: 'sale' | 'service';
@@ -205,6 +220,7 @@ export interface OrderFilters {
   order_type?: string;
   page?: number;
   per_page?: number;
+  customer_id?: string;
 }
 
 export interface ProductFilters {

@@ -47,7 +47,7 @@ export const createProductSchema = z.object({
   category_id: requiredStringSchema,
   image_url: imageUrlSchema.optional(),
   status: productStatusSchema.default('active'),
-  preparation_time: z.number().min(0).max(43200).default(0), // optional service duration, up to 30 days
+  preparation_time: z.number().min(0).max(365).default(0), // whole days in the form; converted before API submission
 })
 
 export const updateProductSchema = createProductSchema.partial().extend({

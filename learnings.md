@@ -89,3 +89,27 @@
 - Settings are currently stored in browser local storage, so another device does not yet share them; server-persisted settings remain a later hardening task.
 - The Discord webhook field is a saved placeholder only. No message is transmitted until a dedicated integration is implemented.
 - Cost snapshots and profit reporting are implemented, but supplier purchases and atomic stock deductions still require the inventory phase.
+
+## 2026-09-28 - Fresh shop, compact catalog, and reusable clients
+
+### Worked
+
+- Replaced all starter catalog seed data with a blank-business bootstrap that retains only the secured administrator; the live database was backed up and then cleared of categories, products/services, transactions, clients, dining remnants, and non-admin users.
+- Added a reusable `customers` table and stable `orders.customer_id` link while retaining the name/phone snapshot on each transaction.
+- Checkout now searches saved clients as the operator types, fills the selected phone number, automatically creates or updates a client by unique phone, and requires name plus phone for service tickets.
+- Added Manage Clients with name/phone search, transaction totals, and linked product-sale and service/repair history.
+- Rebuilt sales cards around a compact 4:3 image, predictable content hierarchy, clamped text, and bottom-aligned controls; the width slider remains available for monitor-specific density.
+- Converted the catalog user experience from minutes to whole service days with a one-day minimum. The legacy minute column remains an internal compatibility detail and stores one day as 1,440 minutes.
+- Fixed order-history loading for products whose optional description is null.
+
+### Verification
+
+- Verified the database/uploads backup checksum and archive integrity before the destructive reset.
+- Go tests, TypeScript checks, and the production Vite build pass.
+- A disposable PostgreSQL container confirmed a clean initialization creates exactly one administrator and zero categories, products, clients, or orders.
+- Runtime API checks confirmed automatic client saving, stable client-linked service history, and two-day duration persistence; all temporary verification rows were removed afterward.
+- Browser inspection confirmed the blank catalog/client states, compact aligned cards across mixed title lengths, and the `Estimated Service Duration (days)` form label.
+
+### Recovery point
+
+- Pre-reset data and uploads can be restored from `backups/self-host/*20260927-215207*`.

@@ -62,7 +62,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         category_id: product.category_id,
         image_url: product.image_url || '',
         status: product.is_available ? ('active' as const) : ('inactive' as const),
-        preparation_time: product.preparation_time || 0
+        preparation_time: product.item_type === 'service' ? Math.max(1, Math.ceil(product.preparation_time / 1440)) : 0
       }
     : {
         name: '',
@@ -86,6 +86,18 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
       form.setValue('category_id', categories[0].id)
     }
   }, [categories, form, isEditing])
+
+  const itemType = form.watch('item_type')
+
+  useEffect(() => {
+    const duration = form.getValues('preparation_time') || 0
+    if (itemType === 'service' && duration < 1) {
+      form.setValue('preparation_time', 1)
+    }
+    if (itemType === 'product' && duration !== 0) {
+      form.setValue('preparation_time', 0)
+    }
+  }, [form, itemType])
 
   useEffect(() => {
     return () => {
@@ -118,6 +130,9 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
     const { status, ...productData } = data
     const preparedData = {
       ...productData,
+      preparation_time: productData.item_type === 'service'
+        ? Math.max(1, productData.preparation_time || 1) * 1440
+        : 0,
       is_available: status ? status === 'active' : undefined
     }
 
@@ -274,10 +289,10 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
               <NumberInputField
                 control={form.control}
                 name="preparation_time"
-                label="Service Duration (minutes)"
-                min={0}
-                max={43200}
-                description="Use 0 for physical products; services can be up to 30 days"
+                label="Estimated Service Duration (days)"
+                min={itemType === 'service' ? 1 : 0}
+                max={365}
+                description={itemType === 'service' ? 'Minimum 1 day' : 'Not used for physical products'}
               />
             </div>
 

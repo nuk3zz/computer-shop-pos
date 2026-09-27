@@ -18,6 +18,7 @@ import type {
   OrdersReportItem,
   OrderFilters,
   ProductFilters,
+  Customer,
 } from '@/types';
 
 class APIClient {
@@ -131,6 +132,14 @@ class APIClient {
       url: `/categories/${categoryId}/products`,
       params: { available_only: availableOnly },
     });
+  }
+
+  async getCustomers(params?: { search?: string; page?: number; per_page?: number }): Promise<PaginatedResponse<Customer[]>> {
+    return this.request({ method: 'GET', url: '/customers', params });
+  }
+
+  async getCustomer(id: string): Promise<APIResponse<Customer>> {
+    return this.request({ method: 'GET', url: `/customers/${id}` });
   }
 
   // Order endpoints

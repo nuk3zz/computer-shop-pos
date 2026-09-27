@@ -21,6 +21,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	authHandler := handlers.NewAuthHandler(db)
 	orderHandler := handlers.NewOrderHandler(db)
 	productHandler := handlers.NewProductHandler(db)
+	customerHandler := handlers.NewCustomerHandler(db)
 	paymentHandler := handlers.NewPaymentHandler(db)
 	imageUploadHandler := handlers.NewImageUploadHandler(uploadDir)
 
@@ -44,6 +45,8 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		protected.GET("/products/:id", productHandler.GetProduct)
 		protected.GET("/categories", productHandler.GetCategories)
 		protected.GET("/categories/:id/products", productHandler.GetProductsByCategory)
+		protected.GET("/customers", customerHandler.GetCustomers)
+		protected.GET("/customers/:id", customerHandler.GetCustomer)
 
 		// Sales and repair-ticket routes
 		protected.GET("/orders", orderHandler.GetOrders)

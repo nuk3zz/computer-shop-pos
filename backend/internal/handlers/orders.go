@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"pos-backend/internal/middleware"
@@ -29,6 +30,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 	perPage := 20
 	status := c.Query("status")
 	orderType := c.Query("order_type")
+	customerID := c.Query("customer_id")
 
 	if pageStr := c.Query("page"); pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
@@ -46,7 +48,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 
 	// Build query with filters
 	queryBuilder := `
-		SELECT DISTINCT o.id, o.order_number, o.table_id, o.user_id, o.customer_name, o.customer_phone,
+		SELECT DISTINCT o.id, o.order_number, o.table_id, o.user_id, o.customer_id, o.customer_name, o.customer_phone,
 		       o.order_type, o.status, o.subtotal, o.tax_amount, o.discount_amount, 
 		       o.total_amount, o.notes, o.created_at, o.updated_at, o.served_at, o.completed_at,
 		       t.table_number, t.location,
@@ -70,6 +72,17 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 		argIndex++
 		queryBuilder += fmt.Sprintf(" AND o.order_type = $%d", argIndex)
 		args = append(args, orderType)
+	}
+
+	if customerID != "" {
+		parsedCustomerID, err := uuid.Parse(customerID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Invalid client ID", Error: stringPtr("invalid_uuid")})
+			return
+		}
+		argIndex++
+		queryBuilder += fmt.Sprintf(" AND o.customer_id = $%d", argIndex)
+		args = append(args, parsedCustomerID)
 	}
 
 	// Count total records
@@ -111,7 +124,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 		var username, firstName, lastName sql.NullString
 
 		err := rows.Scan(
-			&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerName, &order.CustomerPhone,
+			&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerID, &order.CustomerName, &order.CustomerPhone,
 			&order.OrderType, &order.Status, &order.Subtotal, &order.TaxAmount, &order.DiscountAmount,
 			&order.TotalAmount, &order.Notes, &order.CreatedAt, &order.UpdatedAt, &order.ServedAt, &order.CompletedAt,
 			&tableNumber, &tableLocation,
@@ -262,6 +275,40 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
+	// Link the transaction to an existing client, or save a new/re-entered client
+	// automatically when both a name and phone number are provided.
+	if req.CustomerID != nil {
+		var name, phone string
+		if err := tx.QueryRow("SELECT name, phone FROM customers WHERE id = $1", *req.CustomerID).Scan(&name, &phone); err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Selected client was not found", Error: stringPtr("client_not_found")})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to read selected client", Error: stringPtr(err.Error())})
+			return
+		}
+		req.CustomerName = &name
+		req.CustomerPhone = &phone
+	} else if req.CustomerName != nil && req.CustomerPhone != nil {
+		name := strings.TrimSpace(*req.CustomerName)
+		phone := strings.TrimSpace(*req.CustomerPhone)
+		if name != "" && phone != "" {
+			var customerID uuid.UUID
+			err := tx.QueryRow(`
+				INSERT INTO customers (name, phone)
+				VALUES ($1, $2)
+				ON CONFLICT (phone) DO UPDATE SET name = EXCLUDED.name, updated_at = CURRENT_TIMESTAMP
+				RETURNING id`, name, phone).Scan(&customerID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to save client", Error: stringPtr(err.Error())})
+				return
+			}
+			req.CustomerID = &customerID
+			req.CustomerName = &name
+			req.CustomerPhone = &phone
+		}
+	}
+
 	// Generate order number
 	orderNumber := h.generateOrderNumber(req.OrderType)
 
@@ -298,12 +345,12 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	// Create order
 	orderID := uuid.New()
 	orderQuery := `
-		INSERT INTO orders (id, order_number, table_id, user_id, customer_name, customer_phone, order_type, status,
+		INSERT INTO orders (id, order_number, table_id, user_id, customer_id, customer_name, customer_phone, order_type, status,
 		                   subtotal, tax_amount, discount_amount, total_amount, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
-	_, err = tx.Exec(orderQuery, orderID, orderNumber, req.TableID, userID, req.CustomerName, req.CustomerPhone,
+	_, err = tx.Exec(orderQuery, orderID, orderNumber, req.TableID, userID, req.CustomerID, req.CustomerName, req.CustomerPhone,
 		req.OrderType, "pending", subtotal, taxAmount, 0, totalAmount, req.Notes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
@@ -532,7 +579,7 @@ func (h *OrderHandler) getOrderByID(orderID uuid.UUID) (*models.Order, error) {
 	var username, firstName, lastName sql.NullString
 
 	query := `
-		SELECT o.id, o.order_number, o.table_id, o.user_id, o.customer_name, o.customer_phone,
+		SELECT o.id, o.order_number, o.table_id, o.user_id, o.customer_id, o.customer_name, o.customer_phone,
 		       o.order_type, o.status, o.subtotal, o.tax_amount, o.discount_amount, 
 		       o.total_amount, o.notes, o.created_at, o.updated_at, o.served_at, o.completed_at,
 		       t.table_number, t.location,
@@ -544,7 +591,7 @@ func (h *OrderHandler) getOrderByID(orderID uuid.UUID) (*models.Order, error) {
 	`
 
 	err := h.db.QueryRow(query, orderID).Scan(
-		&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerName, &order.CustomerPhone,
+		&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerID, &order.CustomerName, &order.CustomerPhone,
 		&order.OrderType, &order.Status, &order.Subtotal, &order.TaxAmount, &order.DiscountAmount,
 		&order.TotalAmount, &order.Notes, &order.CreatedAt, &order.UpdatedAt, &order.ServedAt, &order.CompletedAt,
 		&tableNumber, &tableLocation,
@@ -605,7 +652,8 @@ func (h *OrderHandler) loadOrderItems(order *models.Order) error {
 	var items []models.OrderItem
 	for rows.Next() {
 		var item models.OrderItem
-		var productName, productDescription string
+		var productName string
+		var productDescription sql.NullString
 		var productPrice, productCost float64
 		var itemType string
 		var preparationTime int
@@ -620,10 +668,14 @@ func (h *OrderHandler) loadOrderItems(order *models.Order) error {
 		}
 
 		item.OrderID = order.ID
+		var description *string
+		if productDescription.Valid {
+			description = &productDescription.String
+		}
 		item.Product = &models.Product{
 			ID:              item.ProductID,
 			Name:            productName,
-			Description:     &productDescription,
+			Description:     description,
 			Price:           productPrice,
 			CostPrice:       productCost,
 			ItemType:        itemType,

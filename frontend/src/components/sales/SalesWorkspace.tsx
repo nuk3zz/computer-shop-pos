@@ -7,11 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import apiClient from '@/api/client'
 import { getMediaUrl } from '@/lib/media'
-import { getPreparationTimeDisplay } from '@/lib/utils'
 import { formatMoney } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
-import type { Product } from '@/types'
-import { Clock, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, ZoomIn } from 'lucide-react'
+import type { Customer, Product } from '@/types'
+import { Check, Clock, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, X, ZoomIn } from 'lucide-react'
 
 interface CartLine {
   product: Product
@@ -24,6 +23,8 @@ export function SalesWorkspace() {
   const [orderType, setOrderType] = useState<'sale' | 'service'>('sale')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>()
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false)
   const [deviceNotes, setDeviceNotes] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   const [tileSize, setTileSize] = useState(180)
@@ -44,9 +45,17 @@ export function SalesWorkspace() {
     },
   })
 
+  const customerSearch = customerName.trim()
+  const { data: customerSuggestions = [] } = useQuery({
+    queryKey: ['customer-suggestions', customerSearch],
+    queryFn: () => apiClient.getCustomers({ search: customerSearch, per_page: 6 }).then((response) => response.data || []),
+    enabled: customerSearch.length >= 2 && !selectedCustomerId,
+  })
+
   const createOrder = useMutation({
     mutationFn: () => apiClient.createOrder({
       order_type: orderType,
+      customer_id: selectedCustomerId,
       customer_name: customerName.trim() || undefined,
       customer_phone: customerPhone.trim() || undefined,
       notes: deviceNotes.trim() || undefined,
@@ -60,10 +69,13 @@ export function SalesWorkspace() {
       setCart([])
       setCustomerName('')
       setCustomerPhone('')
+      setSelectedCustomerId(undefined)
+      setShowCustomerSuggestions(false)
       setDeviceNotes('')
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['repair-orders'] })
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
     },
     onError: (error) => toastHelpers.apiError('Create transaction', error),
   })
@@ -97,7 +109,15 @@ export function SalesWorkspace() {
 
   const subtotal = cart.reduce((total, line) => total + line.product.price * line.quantity, 0)
   const itemCount = cart.reduce((total, line) => total + line.quantity, 0)
-  const canSubmit = cart.length > 0 && (orderType === 'sale' || customerName.trim().length > 0)
+  const hasServiceContact = customerName.trim().length > 0 && customerPhone.trim().length > 0
+  const canSubmit = cart.length > 0 && (orderType === 'sale' || hasServiceContact)
+
+  const selectCustomer = (customer: Customer) => {
+    setSelectedCustomerId(customer.id)
+    setCustomerName(customer.name)
+    setCustomerPhone(customer.phone)
+    setShowCustomerSuggestions(false)
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -109,8 +129,8 @@ export function SalesWorkspace() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ZoomIn className="h-4 w-4" /> Tile size
-              <input type="range" min="150" max="280" step="10" value={tileSize} onChange={(event) => setTileSize(Number(event.target.value))} className="w-28" />
+              <ZoomIn className="h-4 w-4" /> Card width
+              <input type="range" min="150" max="260" step="10" value={tileSize} onChange={(event) => setTileSize(Number(event.target.value))} className="w-28" />
             </label>
             <div className="flex rounded-lg border bg-slate-50 p-1">
               <Button variant={orderType === 'sale' ? 'default' : 'ghost'} onClick={() => setOrderType('sale')} className="gap-2">
@@ -167,8 +187,8 @@ export function SalesWorkspace() {
               {filteredProducts.map((product) => {
                 const quantity = cart.find((line) => line.product.id === product.id)?.quantity || 0
                 return (
-                  <Card key={product.id} className="overflow-hidden transition-shadow hover:shadow-md">
-                    <div className="aspect-square overflow-hidden bg-slate-100">
+                  <Card key={product.id} className="flex h-full flex-col overflow-hidden transition-shadow hover:shadow-md">
+                    <div className="aspect-[4/3] overflow-hidden bg-slate-100">
                       {product.image_url ? (
                         <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-full w-full object-cover" />
                       ) : (
@@ -177,24 +197,20 @@ export function SalesWorkspace() {
                         </div>
                       )}
                     </div>
-                    <CardContent className="space-y-3 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h2 className="font-semibold leading-tight">{product.name}</h2>
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{product.description || 'No description'}</p>
-                        </div>
-                        <span className="whitespace-nowrap font-bold">{formatMoney(product.price)}</span>
-                      </div>
-                      <div className="flex min-h-6 flex-wrap items-center gap-2">
-                        {product.category && <Badge variant="outline">{product.category.name}</Badge>}
+                    <CardContent className="flex flex-1 flex-col p-3">
+                      <h2 className="min-h-10 line-clamp-2 font-semibold leading-5">{product.name}</h2>
+                      <div className="mt-1 text-base font-bold">{formatMoney(product.price)}</div>
+                      <p className="mt-1 min-h-10 line-clamp-2 text-xs leading-5 text-muted-foreground">{product.description || 'No description'}</p>
+                      <div className="mt-2 flex min-h-12 flex-wrap content-start items-center gap-1.5 text-xs">
+                        {product.category && <span className="w-full truncate text-muted-foreground">{product.category.name}</span>}
                         <Badge variant={product.item_type === 'service' ? 'default' : 'secondary'}>{product.item_type === 'service' ? 'Service' : 'Product'}</Badge>
                         {product.preparation_time > 0 && (
                           <Badge variant="secondary" className="gap-1">
-                            <Clock className="h-3 w-3" /> {getPreparationTimeDisplay(product.preparation_time)}
+                            <Clock className="h-3 w-3" /> {Math.max(1, Math.ceil(product.preparation_time / 1440))} {Math.ceil(product.preparation_time / 1440) === 1 ? 'day' : 'days'}
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="mt-auto flex min-h-10 items-center justify-end gap-2 pt-3">
                         {quantity > 0 && (
                           <>
                             <Button variant="outline" size="icon" onClick={() => removeFromCart(product.id)}><Minus className="h-4 w-4" /></Button>
@@ -224,24 +240,70 @@ export function SalesWorkspace() {
                 <Badge variant="secondary">{itemCount} item{itemCount === 1 ? '' : 's'}</Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {orderType === 'service' ? 'Customer name is required for service work.' : 'Customer name is optional for product sales.'}
+                {orderType === 'service' ? 'Customer name and phone are required for service work.' : 'Customer details are optional for product sales.'}
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="relative">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <User className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
+                  onFocus={() => setShowCustomerSuggestions(true)}
+                  onChange={(event) => {
+                    setCustomerName(event.target.value)
+                    setSelectedCustomerId(undefined)
+                    setShowCustomerSuggestions(true)
+                  }}
                   placeholder={orderType === 'service' ? 'Customer name *' : 'Customer name (optional)'}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                 />
+                {(customerName || selectedCustomerId) && (
+                  <button
+                    type="button"
+                    aria-label="Clear selected client"
+                    onClick={() => {
+                      setCustomerName('')
+                      setCustomerPhone('')
+                      setSelectedCustomerId(undefined)
+                    }}
+                    className="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                {showCustomerSuggestions && !selectedCustomerId && customerSearch.length >= 2 && customerSuggestions.length > 0 && (
+                  <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-md border bg-white shadow-lg">
+                    {customerSuggestions.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectCustomer(customer)}
+                        className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-0 hover:bg-slate-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{customer.name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{customer.phone}</span>
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{customer.order_count} past</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+              {selectedCustomerId && (
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-700">
+                  <Check className="h-3.5 w-3.5" /> Existing client selected
+                </div>
+              )}
               <Input
                 value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-                placeholder="WhatsApp phone (example: 0771234567)"
+                onChange={(event) => {
+                  setCustomerPhone(event.target.value)
+                  setSelectedCustomerId(undefined)
+                }}
+                placeholder={orderType === 'service' ? 'WhatsApp phone * (example: 0771234567)' : 'WhatsApp phone (optional)'}
                 inputMode="tel"
               />
               <Textarea

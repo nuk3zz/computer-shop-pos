@@ -214,9 +214,10 @@ export function AdminMenuTable({
       },
       cell: ({ getValue }) => {
         const time = getValue() as number
+        const days = Math.max(1, Math.ceil(time / 1440))
         return (
           <div className="text-gray-900">
-            {time > 0 ? `${time} min` : 'Not applicable'}
+            {time > 0 ? `${days} ${days === 1 ? 'day' : 'days'}` : 'Not applicable'}
           </div>
         )
       },
