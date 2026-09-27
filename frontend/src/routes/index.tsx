@@ -1,5 +1,4 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import apiClient from '@/api/client'
 import { RoleBasedLayout } from '@/components/RoleBasedLayout'
@@ -12,23 +11,6 @@ export const Route = createFileRoute('/')({
 function HomePage() {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  // ALL HOOKS MUST BE AT THE TOP LEVEL - before any conditional returns
-  const { isLoading: isServerVerifying, error } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => {
-      console.log('Verifying user with API URL:', import.meta.env.VITE_API_URL)
-      return apiClient.getCurrentUser()
-    },
-    retry: 1,
-    enabled: false, // Temporarily disable server verification
-    onError: (error) => {
-      console.error('getCurrentUser failed:', error)
-      // Clear auth and redirect to login
-      apiClient.clearAuth()
-      window.location.href = '/login'
-    }
-  })
 
   useEffect(() => {
     console.log('Loading user from localStorage...')
@@ -81,4 +63,3 @@ function HomePage() {
   console.log('User authenticated, rendering role-based layout for user:', user)
   return <RoleBasedLayout user={user} />
 }
-

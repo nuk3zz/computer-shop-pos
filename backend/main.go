@@ -71,7 +71,7 @@ func main() {
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "healthy", "message": "POS API is running"})
+		c.JSON(200, gin.H{"status": "healthy", "message": "Computer Shop POS API is running"})
 	})
 
 	// Initialize API routes

@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import type { Product, Category } from "@/types"
 import { getMediaUrl } from "@/lib/media"
+import { formatMoney } from "@/lib/shop-settings"
 
 interface AdminMenuTableProps {
   data: Product[]
@@ -59,13 +60,6 @@ export function AdminMenuTable({
     return category?.color || "bg-gray-100 text-gray-800"
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
-
   const columns: ColumnDef<Product>[] = [
     {
       accessorKey: "name",
@@ -78,7 +72,7 @@ export function AdminMenuTable({
             className="h-8 px-2 lg:px-3"
           >
             <Package className="mr-2 h-4 w-4" />
-            Product
+            Item / Service
             {isSorted === "asc" ? (
               <ArrowUp className="ml-2 h-4 w-4" />
             ) : isSorted === "desc" ? (
@@ -177,7 +171,21 @@ export function AdminMenuTable({
         const price = getValue() as number
         return (
           <div className="font-medium text-green-600">
-            {formatCurrency(price)}
+            {formatMoney(price)}
+          </div>
+        )
+      },
+    },
+    {
+      id: "cost_profit",
+      header: "Cost / Profit",
+      cell: ({ row }) => {
+        const product = row.original
+        const profit = product.price - product.cost_price
+        return (
+          <div className="text-sm">
+            <div className="text-muted-foreground">Cost {formatMoney(product.cost_price)}</div>
+            <div className="font-medium text-emerald-700">Profit {formatMoney(profit)}</div>
           </div>
         )
       },
@@ -193,7 +201,7 @@ export function AdminMenuTable({
             className="h-8 px-2 lg:px-3"
           >
             <Clock className="mr-2 h-4 w-4" />
-            Prep Time
+            Service Duration
             {isSorted === "asc" ? (
               <ArrowUp className="ml-2 h-4 w-4" />
             ) : isSorted === "desc" ? (
@@ -208,7 +216,7 @@ export function AdminMenuTable({
         const time = getValue() as number
         return (
           <div className="text-gray-900">
-            {time}min
+            {time > 0 ? `${time} min` : 'Not applicable'}
           </div>
         )
       },
@@ -352,8 +360,8 @@ export function AdminMenuTable({
                     <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                       <Package className="w-6 h-6 text-gray-400" />
                     </div>
-                    <p className="text-gray-500">No products found</p>
-                    <p className="text-sm text-gray-400">Try adjusting your search or add a new product</p>
+                    <p className="text-gray-500">No catalog items found</p>
+                    <p className="text-sm text-gray-400">Try adjusting your search or add a product or service</p>
                   </div>
                 </TableCell>
               </TableRow>

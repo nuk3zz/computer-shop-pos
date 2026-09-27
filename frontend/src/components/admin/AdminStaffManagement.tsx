@@ -21,8 +21,8 @@ import { UserForm } from '@/components/forms/UserForm'
 import { AdminStaffTable } from '@/components/admin/AdminStaffTable'
 import { PaginationControlsComponent } from '@/components/ui/pagination-controls'
 import { usePagination } from '@/hooks/usePagination'
-import { UserListSkeleton, SearchingSkeleton } from '@/components/ui/skeletons'
-import { PageLoading, InlineLoading } from '@/components/ui/loading-spinner'
+import { UserListSkeleton } from '@/components/ui/skeletons'
+import { InlineLoading } from '@/components/ui/loading-spinner'
 import type { User } from '@/types'
 
 type DisplayMode = 'table' | 'cards'
@@ -58,7 +58,7 @@ export function AdminStaffManagement() {
   }, [searchTerm, debouncedSearch])
 
   // Fetch users with pagination
-  const { data: usersData, isLoading, isFetching, isPlaceholderData } = useQuery({
+  const { data: usersData, isLoading, isFetching } = useQuery({
     queryKey: ['users', pagination.page, pagination.pageSize, debouncedSearch],
     queryFn: () => apiClient.getUsers({
       page: pagination.page,
@@ -110,9 +110,8 @@ export function AdminStaffManagement() {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800 hover:bg-red-200'
       case 'manager': return 'bg-purple-100 text-purple-800 hover:bg-purple-200'
-      case 'server': return 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-      case 'counter': return 'bg-green-100 text-green-800 hover:bg-green-200'
-      case 'kitchen': return 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+      case 'sales': return 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+      case 'technician': return 'bg-orange-100 text-orange-800 hover:bg-orange-200'
       default: return 'bg-gray-100 text-gray-800 hover:bg-gray-200'
     }
   }
@@ -161,7 +160,7 @@ export function AdminStaffManagement() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Staff Management</h2>
           <p className="text-muted-foreground">
-            Manage your restaurant staff and their permissions
+            Manage shop staff and their permissions
           </p>
         </div>
         <div className="flex items-center space-x-4">

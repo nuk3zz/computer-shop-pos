@@ -29,6 +29,7 @@ import { ProductListSkeleton, CategoryListSkeleton } from '@/components/ui/skele
 import { InlineLoading } from '@/components/ui/loading-spinner'
 import type { Product, Category } from '@/types'
 import { getMediaUrl } from '@/lib/media'
+import { formatMoney } from '@/lib/shop-settings'
 
 type DisplayMode = 'table' | 'cards'
 type ActiveTab = 'products' | 'categories'
@@ -150,7 +151,6 @@ export function AdminMenuManagement() {
     setShowCreateCategoryForm(false)
     setEditingProduct(null)
     setEditingCategory(null)
-    setViewMode('list')
   }
 
   const handleDeleteProduct = (product: Product) => {
@@ -197,9 +197,9 @@ export function AdminMenuManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Menu Management</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Catalog & Inventory</h2>
           <p className="text-muted-foreground">
-            Manage your restaurant's products and categories
+            Manage computer products, services, images, prices, and categories
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -233,7 +233,7 @@ export function AdminMenuManagement() {
           <TabsList className="grid w-[400px] grid-cols-2">
             <TabsTrigger value="products" className="gap-2">
               <Package className="h-4 w-4" />
-              Products ({products.length || 0})
+              Items & Services ({products.length || 0})
             </TabsTrigger>
             <TabsTrigger value="categories" className="gap-2">
               <Tag className="h-4 w-4" />
@@ -251,7 +251,7 @@ export function AdminMenuManagement() {
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search products by name, category, or description..."
+                    placeholder="Search items and services by name, category, or description..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
@@ -264,7 +264,7 @@ export function AdminMenuManagement() {
                 </div>
                 <Button onClick={() => setShowCreateProductForm(true)} className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Add Product
+                  Add Item or Service
                 </Button>
               </div>
             </CardContent>
@@ -287,15 +287,15 @@ export function AdminMenuManagement() {
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
                     <Package className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No products</h3>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No catalog items</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      {searchTerm ? 'No products match your search.' : 'Get started by adding your first product.'}
+                      {searchTerm ? 'No items match your search.' : 'Get started by adding your first product or service.'}
                     </p>
                     {!searchTerm && (
                       <div className="mt-6">
                         <Button onClick={() => setShowCreateProductForm(true)} className="gap-2">
                           <Plus className="h-4 w-4" />
-                          Add Product
+                          Add Item or Service
                         </Button>
                       </div>
                     )}
@@ -330,12 +330,16 @@ export function AdminMenuManagement() {
                             <div className="flex items-center gap-2 mt-2">
                               <Badge variant="outline" className="text-green-600">
                                 <DollarSign className="w-3 h-3 mr-1" />
-                                {product.price}
+                                {formatMoney(product.price)}
                               </Badge>
-                              <Badge variant="outline" className="text-blue-600">
-                                <Clock className="w-3 h-3 mr-1" />
-                                {product.preparation_time}min
-                              </Badge>
+                              <Badge variant="outline">Cost {formatMoney(product.cost_price)}</Badge>
+                              <Badge variant="outline" className="text-emerald-700">Profit {formatMoney(product.price - product.cost_price)}</Badge>
+                              {product.preparation_time > 0 && (
+                                <Badge variant="outline" className="text-blue-600">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {product.preparation_time} min service
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>

@@ -2,9 +2,7 @@ package api
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +22,6 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	orderHandler := handlers.NewOrderHandler(db)
 	productHandler := handlers.NewProductHandler(db)
 	paymentHandler := handlers.NewPaymentHandler(db)
-	tableHandler := handlers.NewTableHandler(db)
 	imageUploadHandler := handlers.NewImageUploadHandler(uploadDir)
 
 	// Public routes (no authentication required)
@@ -48,37 +45,15 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		protected.GET("/categories", productHandler.GetCategories)
 		protected.GET("/categories/:id/products", productHandler.GetProductsByCategory)
 
-		// Table routes
-		protected.GET("/tables", tableHandler.GetTables)
-		protected.GET("/tables/:id", tableHandler.GetTable)
-		protected.GET("/tables/by-location", tableHandler.GetTablesByLocation)
-		protected.GET("/tables/status", tableHandler.GetTableStatus)
-
-		// Order routes (general view for all roles)
+		// Sales and repair-ticket routes
 		protected.GET("/orders", orderHandler.GetOrders)
+		protected.POST("/orders", middleware.RequireRoles([]string{"admin", "manager", "sales", "technician"}), orderHandler.CreateOrder)
 		protected.GET("/orders/:id", orderHandler.GetOrder)
 		protected.PATCH("/orders/:id/status", orderHandler.UpdateOrderStatus)
 
 		// Payment routes (counter/admin only)
 		protected.GET("/orders/:id/payments", paymentHandler.GetPayments)
 		protected.GET("/orders/:id/payment-summary", paymentHandler.GetPaymentSummary)
-	}
-
-	// Server routes (server role - dine-in orders only)
-	server := router.Group("/server")
-	server.Use(authMiddleware)
-	server.Use(middleware.RequireRole("server"))
-	{
-		server.POST("/orders", createDineInOrder(db)) // Only dine-in orders
-	}
-
-	// Counter routes (counter role - all order types and payments)
-	counter := router.Group("/counter")
-	counter.Use(authMiddleware)
-	counter.Use(middleware.RequireRole("counter"))
-	{
-		counter.POST("/orders", orderHandler.CreateOrder)                   // All order types
-		counter.POST("/orders/:id/payments", paymentHandler.ProcessPayment) // Process payments
 	}
 
 	// Admin routes (admin/manager only)
@@ -92,7 +67,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.GET("/reports/orders", getOrdersReport(db))
 		admin.GET("/reports/income", getIncomeReport(db))
 
-		// Menu management with pagination
+		// Catalog management with pagination
 		admin.GET("/products", productHandler.GetProducts) // Use existing paginated handler
 		admin.GET("/categories", getAdminCategories(db))   // Add pagination
 		admin.POST("/categories", createCategory(db))
@@ -102,12 +77,6 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.PUT("/products/:id", updateProduct(db))
 		admin.DELETE("/products/:id", deleteProduct(db))
 		admin.POST("/uploads/images", imageUploadHandler.UploadProductImage)
-
-		// Table management with pagination
-		admin.GET("/tables", getAdminTables(db)) // Add pagination
-		admin.POST("/tables", createTable(db))
-		admin.PUT("/tables/:id", updateTable(db))
-		admin.DELETE("/tables/:id", deleteTable(db))
 
 		// User management with pagination
 		admin.GET("/users", getAdminUsers(db)) // Update with pagination
@@ -120,14 +89,6 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.POST("/orders/:id/payments", paymentHandler.ProcessPayment) // Admins can process payments
 	}
 
-	// Kitchen routes (kitchen staff access)
-	kitchen := router.Group("/kitchen")
-	kitchen.Use(authMiddleware)
-	kitchen.Use(middleware.RequireRoles([]string{"kitchen", "admin", "manager"}))
-	{
-		kitchen.GET("/orders", getKitchenOrders(db))
-		kitchen.PATCH("/orders/:id/items/:item_id/status", updateOrderItemStatus(db))
-	}
 }
 
 // Dashboard stats handler
@@ -160,18 +121,18 @@ func getDashboardStats(db *sql.DB) gin.HandlerFunc {
 			WHERE status NOT IN ('completed', 'cancelled')
 		`).Scan(&activeOrders)
 
-		// Occupied tables
-		var occupiedTables int
+		// Open service/repair tickets
+		var openRepairs int
 		db.QueryRow(`
 			SELECT COUNT(*) 
-			FROM dining_tables 
-			WHERE is_occupied = true
-		`).Scan(&occupiedTables)
+			FROM orders
+			WHERE order_type = 'service' AND status NOT IN ('completed', 'cancelled')
+		`).Scan(&openRepairs)
 
 		stats["today_orders"] = todayOrders
 		stats["today_revenue"] = todayRevenue
 		stats["active_orders"] = activeOrders
-		stats["occupied_tables"] = occupiedTables
+		stats["open_repairs"] = openRepairs
 
 		c.JSON(200, gin.H{
 			"success": true,
@@ -190,26 +151,32 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 		switch period {
 		case "week":
 			query = `
-				SELECT DATE(created_at) as date, COUNT(*) as order_count, SUM(total_amount) as revenue
-				FROM orders 
-				WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' AND status = 'completed'
-				GROUP BY DATE(created_at)
+				SELECT DATE(o.created_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
+				FROM orders o
+				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
+				WHERE o.created_at >= CURRENT_DATE - INTERVAL '7 days' AND o.status = 'completed'
+				GROUP BY DATE(o.created_at)
 				ORDER BY date DESC
 			`
 		case "month":
 			query = `
-				SELECT DATE(created_at) as date, COUNT(*) as order_count, SUM(total_amount) as revenue
-				FROM orders 
-				WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND status = 'completed'
-				GROUP BY DATE(created_at)
+				SELECT DATE(o.created_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
+				FROM orders o
+				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
+				WHERE o.created_at >= CURRENT_DATE - INTERVAL '30 days' AND o.status = 'completed'
+				GROUP BY DATE(o.created_at)
 				ORDER BY date DESC
 			`
 		default: // today
 			query = `
-				SELECT DATE_TRUNC('hour', created_at) as hour, COUNT(*) as order_count, SUM(total_amount) as revenue
-				FROM orders 
-				WHERE DATE(created_at) = CURRENT_DATE AND status = 'completed'
-				GROUP BY DATE_TRUNC('hour', created_at)
+				SELECT DATE_TRUNC('hour', o.created_at) as hour, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
+				FROM orders o
+				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
+				WHERE DATE(o.created_at) = CURRENT_DATE AND o.status = 'completed'
+				GROUP BY DATE_TRUNC('hour', o.created_at)
 				ORDER BY hour DESC
 			`
 		}
@@ -230,8 +197,9 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 			var date interface{}
 			var orderCount int
 			var revenue float64
+			var profit float64
 
-			err := rows.Scan(&date, &orderCount, &revenue)
+			err := rows.Scan(&date, &orderCount, &revenue, &profit)
 			if err != nil {
 				c.JSON(500, gin.H{
 					"success": false,
@@ -245,6 +213,7 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 				"date":        date,
 				"order_count": orderCount,
 				"revenue":     revenue,
+				"profit":      profit,
 			})
 		}
 
@@ -421,49 +390,6 @@ func updateOrderItemStatus(db *sql.DB) gin.HandlerFunc {
 			"success": true,
 			"message": "Order item status updated successfully",
 		})
-	}
-}
-
-// Server role handler - only allows dine-in orders
-func createDineInOrder(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req struct {
-			TableID      *string `json:"table_id"`
-			CustomerName *string `json:"customer_name"`
-			Items        []struct {
-				ProductID           string  `json:"product_id"`
-				Quantity            int     `json:"quantity"`
-				SpecialInstructions *string `json:"special_instructions"`
-			} `json:"items"`
-			Notes *string `json:"notes"`
-		}
-
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{
-				"success": false,
-				"message": "Invalid request body",
-				"error":   err.Error(),
-			})
-			return
-		}
-
-		// Force order type to dine_in for servers
-		orderHandler := handlers.NewOrderHandler(db)
-
-		// Create order request with forced dine_in type
-		createOrderReq := map[string]interface{}{
-			"table_id":      req.TableID,
-			"customer_name": req.CustomerName,
-			"order_type":    "dine_in", // Force dine-in for servers
-			"items":         req.Items,
-			"notes":         req.Notes,
-		}
-
-		// Convert to JSON and back to simulate the request
-		reqBytes, _ := json.Marshal(createOrderReq)
-		c.Request.Body = io.NopCloser(strings.NewReader(string(reqBytes)))
-
-		orderHandler.CreateOrder(c)
 	}
 }
 
@@ -786,6 +712,8 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			Name            string  `json:"name" binding:"required"`
 			Description     *string `json:"description"`
 			Price           float64 `json:"price" binding:"required"`
+			CostPrice       float64 `json:"cost_price"`
+			ItemType        string  `json:"item_type" binding:"required"`
 			ImageURL        *string `json:"image_url"`
 			Barcode         *string `json:"barcode"`
 			SKU             *string `json:"sku"`
@@ -804,11 +732,16 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var productID string
+		if req.ItemType != "product" && req.ItemType != "service" {
+			c.JSON(400, gin.H{"success": false, "message": "Item type must be product or service"})
+			return
+		}
+
 		err := db.QueryRow(`
-			INSERT INTO products (category_id, name, description, price, image_url, barcode, sku, is_available, preparation_time, sort_order)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true), $9, $10)
+			INSERT INTO products (category_id, name, description, price, cost_price, item_type, image_url, barcode, sku, is_available, preparation_time, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, true), $11, $12)
 			RETURNING id
-		`, req.CategoryID, req.Name, req.Description, req.Price, req.ImageURL, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
+		`, req.CategoryID, req.Name, req.Description, req.Price, req.CostPrice, req.ItemType, req.ImageURL, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
 
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -818,6 +751,14 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			})
 			return
 		}
+
+		stock := 0
+		if req.ItemType == "service" {
+			stock = 999
+		}
+		_, _ = db.Exec(`INSERT INTO inventory (product_id, current_stock, minimum_stock, maximum_stock, unit_cost)
+			VALUES ($1, $2, 0, $3, $4) ON CONFLICT (product_id) DO UPDATE SET unit_cost = EXCLUDED.unit_cost`,
+			productID, stock, stock, req.CostPrice)
 
 		c.JSON(201, gin.H{
 			"success": true,
@@ -837,6 +778,8 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			Name            *string  `json:"name"`
 			Description     *string  `json:"description"`
 			Price           *float64 `json:"price"`
+			CostPrice       *float64 `json:"cost_price"`
+			ItemType        *string  `json:"item_type"`
 			ImageURL        *string  `json:"image_url"`
 			Barcode         *string  `json:"barcode"`
 			SKU             *string  `json:"sku"`
@@ -877,6 +820,20 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 		if req.Price != nil {
 			updates = append(updates, fmt.Sprintf("price = $%d", argCount))
 			args = append(args, *req.Price)
+			argCount++
+		}
+		if req.CostPrice != nil {
+			updates = append(updates, fmt.Sprintf("cost_price = $%d", argCount))
+			args = append(args, *req.CostPrice)
+			argCount++
+		}
+		if req.ItemType != nil {
+			if *req.ItemType != "product" && *req.ItemType != "service" {
+				c.JSON(400, gin.H{"success": false, "message": "Item type must be product or service"})
+				return
+			}
+			updates = append(updates, fmt.Sprintf("item_type = $%d", argCount))
+			args = append(args, *req.ItemType)
 			argCount++
 		}
 		if req.ImageURL != nil {
@@ -944,6 +901,10 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 				"message": "Product not found",
 			})
 			return
+		}
+
+		if req.CostPrice != nil {
+			_, _ = db.Exec("UPDATE inventory SET unit_cost = $1 WHERE product_id = $2", *req.CostPrice, productID)
 		}
 
 		c.JSON(200, gin.H{

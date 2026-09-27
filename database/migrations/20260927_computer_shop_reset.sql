@@ -1,8 +1,34 @@
--- Computer Shop POS starter data
+-- Destructive one-time conversion requested for the current restaurant demo database.
+-- Preserve the administrator account, remove all restaurant/demo business data,
+-- and load the computer-shop starter catalog.
 
--- The self-host startup script replaces this bootstrap password immediately.
-INSERT INTO users (username, email, password_hash, first_name, last_name, role) VALUES
-('admin', 'admin@computer-shop.local', '$2a$10$FPH.ONfAgquWmXjM3LE61OIgOPgXX8i.jOISCHZ2DpK2gg4krEWfO', 'Shop', 'Administrator', 'admin');
+BEGIN;
+
+DELETE FROM order_status_history;
+DELETE FROM payments;
+DELETE FROM order_items;
+DELETE FROM orders;
+DELETE FROM inventory;
+DELETE FROM products;
+DELETE FROM categories;
+DELETE FROM dining_tables;
+DELETE FROM users WHERE username <> 'admin';
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+    CHECK (role IN ('admin', 'manager', 'sales', 'technician'));
+
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_type_check;
+ALTER TABLE orders ADD CONSTRAINT orders_order_type_check
+    CHECK (order_type IN ('sale', 'service'));
+
+UPDATE users
+SET email = 'admin@computer-shop.local',
+    first_name = 'Shop',
+    last_name = 'Administrator',
+    role = 'admin',
+    is_active = true
+WHERE username = 'admin';
 
 INSERT INTO categories (name, description, color, sort_order) VALUES
 ('Memory & RAM', 'Desktop and laptop memory modules', '#2563EB', 1),
@@ -37,11 +63,4 @@ SELECT
     CASE WHEN preparation_time = 0 THEN price * 0.70 ELSE 0 END
 FROM products;
 
-UPDATE products
-SET item_type = CASE WHEN preparation_time > 0 THEN 'service' ELSE 'product' END,
-    cost_price = CASE WHEN preparation_time > 0 THEN 0 ELSE price * 0.70 END;
-
-UPDATE inventory i
-SET unit_cost = p.cost_price
-FROM products p
-WHERE i.product_id = p.id;
+COMMIT;

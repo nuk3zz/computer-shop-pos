@@ -46,7 +46,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 
 	// Build query with filters
 	queryBuilder := `
-		SELECT DISTINCT o.id, o.order_number, o.table_id, o.user_id, o.customer_name, 
+		SELECT DISTINCT o.id, o.order_number, o.table_id, o.user_id, o.customer_name, o.customer_phone,
 		       o.order_type, o.status, o.subtotal, o.tax_amount, o.discount_amount, 
 		       o.total_amount, o.notes, o.created_at, o.updated_at, o.served_at, o.completed_at,
 		       t.table_number, t.location,
@@ -88,7 +88,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 	argIndex++
 	queryBuilder += fmt.Sprintf(" ORDER BY o.created_at DESC LIMIT $%d", argIndex)
 	args = append(args, perPage)
-	
+
 	argIndex++
 	queryBuilder += fmt.Sprintf(" OFFSET $%d", argIndex)
 	args = append(args, offset)
@@ -111,7 +111,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 		var username, firstName, lastName sql.NullString
 
 		err := rows.Scan(
-			&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerName,
+			&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerName, &order.CustomerPhone,
 			&order.OrderType, &order.Status, &order.Subtotal, &order.TaxAmount, &order.DiscountAmount,
 			&order.TotalAmount, &order.Notes, &order.CreatedAt, &order.UpdatedAt, &order.ServedAt, &order.CompletedAt,
 			&tableNumber, &tableLocation,
@@ -241,6 +241,15 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	if req.OrderType != "sale" && req.OrderType != "service" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "Transaction type must be sale or service",
+			Error:   stringPtr("invalid_order_type"),
+		})
+		return
+	}
+
 	// Start transaction
 	tx, err := h.db.Begin()
 	if err != nil {
@@ -254,7 +263,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	defer tx.Rollback()
 
 	// Generate order number
-	orderNumber := h.generateOrderNumber()
+	orderNumber := h.generateOrderNumber(req.OrderType)
 
 	// Calculate totals
 	var subtotal float64
@@ -281,20 +290,20 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		subtotal += price * float64(item.Quantity)
 	}
 
-	// Calculate tax (10% for example)
-	taxRate := 0.10
+	// Tax and service charge default to zero for the new shop.
+	taxRate := 0.0
 	taxAmount := subtotal * taxRate
 	totalAmount := subtotal + taxAmount
 
 	// Create order
 	orderID := uuid.New()
 	orderQuery := `
-		INSERT INTO orders (id, order_number, table_id, user_id, customer_name, order_type, status, 
+		INSERT INTO orders (id, order_number, table_id, user_id, customer_name, customer_phone, order_type, status,
 		                   subtotal, tax_amount, discount_amount, total_amount, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
-	_, err = tx.Exec(orderQuery, orderID, orderNumber, req.TableID, userID, req.CustomerName,
+	_, err = tx.Exec(orderQuery, orderID, orderNumber, req.TableID, userID, req.CustomerName, req.CustomerPhone,
 		req.OrderType, "pending", subtotal, taxAmount, 0, totalAmount, req.Notes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
@@ -308,8 +317,8 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	// Create order items
 	for _, item := range req.Items {
 		// Get product price again for consistency
-		var price float64
-		err := tx.QueryRow("SELECT price FROM products WHERE id = $1", item.ProductID).Scan(&price)
+		var price, costPrice float64
+		err := tx.QueryRow("SELECT price, cost_price FROM products WHERE id = $1", item.ProductID).Scan(&price, &costPrice)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.APIResponse{
 				Success: false,
@@ -323,28 +332,15 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		itemID := uuid.New()
 
 		itemQuery := `
-			INSERT INTO order_items (id, order_id, product_id, quantity, unit_price, total_price, special_instructions)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO order_items (id, order_id, product_id, quantity, unit_price, unit_cost, total_price, special_instructions)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		`
 
-		_, err = tx.Exec(itemQuery, itemID, orderID, item.ProductID, item.Quantity, price, totalPrice, item.SpecialInstructions)
+		_, err = tx.Exec(itemQuery, itemID, orderID, item.ProductID, item.Quantity, price, costPrice, totalPrice, item.SpecialInstructions)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.APIResponse{
 				Success: false,
 				Message: "Failed to create order item",
-				Error:   stringPtr(err.Error()),
-			})
-			return
-		}
-	}
-
-	// Update table status if dine-in
-	if req.OrderType == "dine_in" && req.TableID != nil {
-		_, err = tx.Exec("UPDATE dining_tables SET is_occupied = true WHERE id = $1", *req.TableID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, models.APIResponse{
-				Success: false,
-				Message: "Failed to update table status",
 				Error:   stringPtr(err.Error()),
 			})
 			return
@@ -500,19 +496,6 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	// If order is completed or cancelled, free up the table
-	if (req.Status == "completed" || req.Status == "cancelled") {
-		_, err = tx.Exec(`
-			UPDATE dining_tables 
-			SET is_occupied = false 
-			WHERE id IN (SELECT table_id FROM orders WHERE id = $1 AND table_id IS NOT NULL)
-		`, orderID)
-		if err != nil {
-			// Log error but don't fail the transaction
-			fmt.Printf("Warning: Failed to update table status: %v\n", err)
-		}
-	}
-
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
@@ -549,7 +532,7 @@ func (h *OrderHandler) getOrderByID(orderID uuid.UUID) (*models.Order, error) {
 	var username, firstName, lastName sql.NullString
 
 	query := `
-		SELECT o.id, o.order_number, o.table_id, o.user_id, o.customer_name, 
+		SELECT o.id, o.order_number, o.table_id, o.user_id, o.customer_name, o.customer_phone,
 		       o.order_type, o.status, o.subtotal, o.tax_amount, o.discount_amount, 
 		       o.total_amount, o.notes, o.created_at, o.updated_at, o.served_at, o.completed_at,
 		       t.table_number, t.location,
@@ -561,7 +544,7 @@ func (h *OrderHandler) getOrderByID(orderID uuid.UUID) (*models.Order, error) {
 	`
 
 	err := h.db.QueryRow(query, orderID).Scan(
-		&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerName,
+		&order.ID, &order.OrderNumber, &order.TableID, &order.UserID, &order.CustomerName, &order.CustomerPhone,
 		&order.OrderType, &order.Status, &order.Subtotal, &order.TaxAmount, &order.DiscountAmount,
 		&order.TotalAmount, &order.Notes, &order.CreatedAt, &order.UpdatedAt, &order.ServedAt, &order.CompletedAt,
 		&tableNumber, &tableLocation,
@@ -604,9 +587,9 @@ func (h *OrderHandler) getOrderByID(orderID uuid.UUID) (*models.Order, error) {
 
 func (h *OrderHandler) loadOrderItems(order *models.Order) error {
 	query := `
-		SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price, oi.total_price, 
+		SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price, oi.unit_cost, oi.total_price,
 		       oi.special_instructions, oi.status, oi.created_at, oi.updated_at,
-		       p.name, p.description, p.price, p.preparation_time
+		       p.name, p.description, p.price, p.cost_price, p.item_type, p.preparation_time
 		FROM order_items oi
 		JOIN products p ON oi.product_id = p.id
 		WHERE oi.order_id = $1
@@ -623,13 +606,14 @@ func (h *OrderHandler) loadOrderItems(order *models.Order) error {
 	for rows.Next() {
 		var item models.OrderItem
 		var productName, productDescription string
-		var productPrice float64
+		var productPrice, productCost float64
+		var itemType string
 		var preparationTime int
 
 		err := rows.Scan(
-			&item.ID, &item.ProductID, &item.Quantity, &item.UnitPrice, &item.TotalPrice,
+			&item.ID, &item.ProductID, &item.Quantity, &item.UnitPrice, &item.UnitCost, &item.TotalPrice,
 			&item.SpecialInstructions, &item.Status, &item.CreatedAt, &item.UpdatedAt,
-			&productName, &productDescription, &productPrice, &preparationTime,
+			&productName, &productDescription, &productPrice, &productCost, &itemType, &preparationTime,
 		)
 		if err != nil {
 			return err
@@ -641,6 +625,8 @@ func (h *OrderHandler) loadOrderItems(order *models.Order) error {
 			Name:            productName,
 			Description:     &productDescription,
 			Price:           productPrice,
+			CostPrice:       productCost,
+			ItemType:        itemType,
 			PreparationTime: preparationTime,
 		}
 
@@ -700,8 +686,11 @@ func (h *OrderHandler) loadOrderPayments(order *models.Order) error {
 	return nil
 }
 
-func (h *OrderHandler) generateOrderNumber() string {
+func (h *OrderHandler) generateOrderNumber(orderType string) string {
 	timestamp := time.Now().Format("20060102")
-	return fmt.Sprintf("ORD%s%04d", timestamp, time.Now().UnixNano()%10000)
+	prefix := "SAL"
+	if orderType == "service" {
+		prefix = "REP"
+	}
+	return fmt.Sprintf("%s%s%04d", prefix, timestamp, time.Now().UnixNano()%10000)
 }
-

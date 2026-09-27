@@ -9,28 +9,30 @@
 
 ## Phase 1 - Computer-shop catalog
 
-- Rebrand primary UI from restaurant/menu to products and services.
-- Add item kind, cost price, stock tracking, current stock, reorder level, and flexible estimated duration.
-- Add local product/service image upload, validation, preview, persistent storage, and visual-grid thumbnails.
-- Replace food seed data with computer parts and services.
-- Provide catalog and stock management in the admin UI.
+- Completed: rebrand primary UI to products and services.
+- Completed: add item kind, cost price, selling price, and flexible estimated duration.
+- Completed: add local image upload, validation, preview, persistent storage, and selling-grid thumbnails.
+- Completed: replace food seed data with computer parts and services.
+- Remaining: expose complete stock quantity, reorder level, and restocking controls in the admin UI.
 
 Acceptance: an owner can create a cable with stock/cost/sale price and an uploaded thumbnail, plus a Windows installation service with a five-hour estimate and optional thumbnail but no stock.
 
 ## Phase 2 - Sales, repairs, and workflow
 
-- Add customers and device intake.
-- Create work orders containing service and part lines.
+- Partially completed: customer name, WhatsApp phone, and device/fault notes are captured on service intake.
+- Completed: create work orders containing services and parts.
 - Add stable workflow keys with editable labels/colors.
-- Rework the kitchen display into a technician job board.
+- Completed: replace the kitchen display with Repair Tickets and computer-shop status labels.
+- Completed: add editable WhatsApp templates and pre-filled customer contact links.
 
 Acceptance: a repair can move through owner-labelled stages with a full status history.
 
 ## Phase 3 - Inventory, profit, and reporting
 
 - Record supplier receipts and all stock movements.
-- Snapshot cost on each order line and deduct stock atomically.
-- Add revenue, cost, gross profit, margin, low-stock, and item/service performance reports.
+- Completed: snapshot cost on each order line.
+- Completed: add revenue and gross-profit totals to the sales report.
+- Remaining: deduct stock atomically and add margin, low-stock, supplier, and item/service performance reports.
 
 Acceptance: stock and gross profit reconcile to completed transaction lines and inventory movements.
 

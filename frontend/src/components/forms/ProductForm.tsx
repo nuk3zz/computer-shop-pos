@@ -57,19 +57,23 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         name: product.name,
         description: product.description || '',
         price: product.price,
+        cost_price: product.cost_price || 0,
+        item_type: product.item_type || (product.preparation_time > 0 ? ('service' as const) : ('product' as const)),
         category_id: product.category_id,
         image_url: product.image_url || '',
         status: product.is_available ? ('active' as const) : ('inactive' as const),
-        preparation_time: product.preparation_time || 5
+        preparation_time: product.preparation_time || 0
       }
     : {
         name: '',
         description: '',
         price: 0,
+        cost_price: 0,
+        item_type: 'product' as const,
         category_id: categories[0]?.id || '',
         image_url: '',
         status: 'active' as const,
-        preparation_time: 5
+        preparation_time: 0
       }
 
   const form = useForm<CreateProductData | UpdateProductData>({
@@ -187,7 +191,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{isEditing ? 'Edit Product' : 'Create New Product'}</CardTitle>
+        <CardTitle>{isEditing ? 'Edit Catalog Item' : 'Create Catalog Item'}</CardTitle>
         {onCancel && (
           <Button variant="ghost" size="icon" onClick={onCancel} disabled={isLoading}>
             <X className="h-4 w-4" />
@@ -202,9 +206,9 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
               <TextInputField
                 control={form.control}
                 name="name"
-                label="Product Name"
-                placeholder="Enter product name"
-                description="The name that will appear on the menu"
+                label="Item or Service Name"
+                placeholder="Example: 16 GB DDR4 RAM or Windows Installation"
+                description="The name shown in your sales and service catalog"
               />
 
               <TextareaField
@@ -250,17 +254,30 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
               </div>
             </div>
 
+            <SelectField
+              control={form.control}
+              name="item_type"
+              label="Catalog Type"
+              options={[
+                { value: 'product', label: 'Physical Product' },
+                { value: 'service', label: 'Service / Repair' },
+              ]}
+              description="Services automatically create trackable repair tickets"
+            />
+
             {/* Pricing & Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <PriceInputField control={form.control} name="price" label="Price" currency="$" description="Product selling price" />
+              <PriceInputField control={form.control} name="cost_price" label="Actual Cost (LKR)" currency="Rs." description="What you paid; use 0 for time-based services" />
+
+              <PriceInputField control={form.control} name="price" label="Selling Price (LKR)" currency="Rs." description="Amount charged to the customer" />
 
               <NumberInputField
                 control={form.control}
                 name="preparation_time"
-                label="Preparation Time (minutes)"
-                min={1}
-                max={120}
-                description="Estimated cooking/prep time"
+                label="Service Duration (minutes)"
+                min={0}
+                max={43200}
+                description="Use 0 for physical products; services can be up to 30 days"
               />
             </div>
 
@@ -272,7 +289,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
                 label="Category"
                 options={categoryOptions}
                 placeholder="Select a category"
-                description="Product category for menu organization"
+                description="Category used to find the item quickly"
               />
 
               <SelectField
@@ -280,14 +297,14 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
                 name="status"
                 label="Status"
                 options={productStatusOptions}
-                description="Active products appear on the menu"
+                description="Available items appear in Sales & Services"
               />
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
               <FormSubmitButton isLoading={isLoading} loadingText={isEditing ? 'Updating...' : 'Creating...'} className="flex-1">
-                {isEditing ? 'Update Product' : 'Create Product'}
+                {isEditing ? 'Update Item' : 'Create Item'}
               </FormSubmitButton>
 
               {onCancel && (

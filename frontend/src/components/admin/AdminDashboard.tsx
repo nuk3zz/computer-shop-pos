@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/api/client'
+import { formatMoney } from '@/lib/shop-settings'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { 
   DollarSign, 
   ShoppingCart, 
-  Users, 
-  Table, 
+  Wrench,
+  UserCog,
   TrendingUp,
   Plus,
   Settings,
@@ -37,13 +38,6 @@ export function AdminDashboard() {
     queryFn: () => apiClient.getIncomeReport(selectedPeriod).then(res => res.data)
   })
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
-
   if (statsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -57,9 +51,9 @@ export function AdminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Computer Shop Dashboard</h1>
           <p className="text-muted-foreground">
-            Manage your restaurant operations and monitor performance
+            Monitor sales, service jobs, and daily business activity
           </p>
         </div>
         <div className="flex gap-2">
@@ -84,7 +78,7 @@ export function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.today_orders || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +12% from yesterday
+              Sales and repair tickets created today
             </p>
           </CardContent>
         </Card>
@@ -95,17 +89,17 @@ export function AdminDashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats?.today_revenue || 0)}</div>
+            <div className="text-2xl font-bold">{formatMoney(stats?.today_revenue || 0)}</div>
             <p className="text-xs text-muted-foreground">
-              +8% from yesterday
+              Completed transaction revenue
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Orders</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active Transactions</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.active_orders || 0}</div>
@@ -117,13 +111,13 @@ export function AdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Occupied Tables</CardTitle>
-            <Table className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Open Repairs</CardTitle>
+            <Wrench className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.occupied_tables || 0}</div>
+            <div className="text-2xl font-bold">{stats?.open_repairs || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Tables currently in use
+              Waiting, diagnosing, or repairing
             </p>
           </CardContent>
         </Card>
@@ -184,19 +178,19 @@ export function AdminDashboard() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(income.summary.gross_income)}
+                    {formatMoney(income.summary.gross_income)}
                   </div>
                   <div className="text-sm text-muted-foreground">Gross Income</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">
-                    {formatCurrency(income.summary.tax_collected)}
+                    {formatMoney(income.summary.tax_collected)}
                   </div>
                   <div className="text-sm text-muted-foreground">Tax Collected</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {formatCurrency(income.summary.net_income)}
+                    {formatMoney(income.summary.net_income)}
                   </div>
                   <div className="text-sm text-muted-foreground">Net Income</div>
                 </div>
@@ -218,9 +212,9 @@ export function AdminDashboard() {
                         {new Date(item.period).toLocaleDateString()}
                       </div>
                       <div className="text-center">{item.orders}</div>
-                      <div className="text-center">{formatCurrency(item.gross)}</div>
-                      <div className="text-center">{formatCurrency(item.tax)}</div>
-                      <div className="text-center font-medium">{formatCurrency(item.net)}</div>
+                      <div className="text-center">{formatMoney(item.gross)}</div>
+                      <div className="text-center">{formatMoney(item.tax)}</div>
+                      <div className="text-center font-medium">{formatMoney(item.net)}</div>
                     </div>
                   ))}
                 </div>
@@ -239,22 +233,22 @@ export function AdminDashboard() {
         <Card className="hover:shadow-lg transition-shadow cursor-pointer">
           <CardHeader className="text-center">
             <Plus className="h-8 w-8 mx-auto text-blue-600" />
-            <CardTitle className="text-lg">Manage Menu</CardTitle>
-            <CardDescription>Add, edit, or remove menu items and categories</CardDescription>
+            <CardTitle className="text-lg">Catalog & Inventory</CardTitle>
+            <CardDescription>Add products, services, images, prices, and categories</CardDescription>
           </CardHeader>
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow cursor-pointer">
           <CardHeader className="text-center">
-            <Table className="h-8 w-8 mx-auto text-green-600" />
-            <CardTitle className="text-lg">Manage Tables</CardTitle>
-            <CardDescription>Configure dining tables and seating arrangements</CardDescription>
+            <Wrench className="h-8 w-8 mx-auto text-green-600" />
+            <CardTitle className="text-lg">Repair Tickets</CardTitle>
+            <CardDescription>Track diagnostics, active repairs, and pickups</CardDescription>
           </CardHeader>
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow cursor-pointer">
           <CardHeader className="text-center">
-            <Users className="h-8 w-8 mx-auto text-purple-600" />
+            <UserCog className="h-8 w-8 mx-auto text-purple-600" />
             <CardTitle className="text-lg">Manage Staff</CardTitle>
             <CardDescription>Add, edit staff accounts and manage permissions</CardDescription>
           </CardHeader>

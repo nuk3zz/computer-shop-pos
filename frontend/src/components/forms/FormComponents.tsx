@@ -372,9 +372,8 @@ export function FormSubmitButton({
 export const roleOptions: SelectOption[] = [
   { value: 'admin', label: 'Administrator' },
   { value: 'manager', label: 'Manager' },
-  { value: 'server', label: 'Server' },
-  { value: 'counter', label: 'Counter/Checkout' },
-  { value: 'kitchen', label: 'Kitchen Staff' },
+  { value: 'sales', label: 'Sales Staff' },
+  { value: 'technician', label: 'Repair Technician' },
 ]
 
 // POS-specific status options
@@ -384,9 +383,8 @@ export const productStatusOptions: SelectOption[] = [
 ]
 
 export const orderTypeOptions: SelectOption[] = [
-  { value: 'dine-in', label: 'Dine In' },
-  { value: 'take-away', label: 'Take Away' },
-  { value: 'delivery', label: 'Delivery' },
+  { value: 'sale', label: 'Product Sale' },
+  { value: 'service', label: 'Service / Repair' },
 ]
 
 export const tableStatusOptions: SelectOption[] = [

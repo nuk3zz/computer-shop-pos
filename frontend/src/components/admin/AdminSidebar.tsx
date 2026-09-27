@@ -1,24 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Link, useRouter, useLocation } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { UserMenu } from '@/components/ui/user-menu'
 import { 
   LayoutDashboard, 
-  Users, 
-  CreditCard, 
-  ChefHat,
+  ShoppingCart,
+  Wrench,
+  PackageSearch,
   Settings,
-  User,
-  Menu,
   BarChart3,
   UserCog,
-  LayoutGrid,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
 import type { User as UserType } from '@/types'
-import apiClient from '@/api/client'
 
 interface AdminSidebarProps {
   user: UserType
@@ -33,32 +28,25 @@ const adminSections = [
     href: '/admin/dashboard'
   },
   {
-    id: 'server',
-    label: 'Server Interface',
-    icon: <Users className="w-5 h-5" />,
-    description: 'Server order interface',
-    href: '/admin/server'
+    id: 'sales',
+    label: 'Sales & Services',
+    icon: <ShoppingCart className="w-5 h-5" />,
+    description: 'Product sales and service intake',
+    href: '/admin/sales'
   },
   {
-    id: 'counter',
-    label: 'Counter/Checkout',
-    icon: <CreditCard className="w-5 h-5" />,
-    description: 'Payment processing',
-    href: '/admin/counter'
+    id: 'repairs',
+    label: 'Repair Tickets',
+    icon: <Wrench className="w-5 h-5" />,
+    description: 'Repair and service queue',
+    href: '/admin/repairs'
   },
   {
-    id: 'kitchen',
-    label: 'Kitchen Display',
-    icon: <ChefHat className="w-5 h-5" />,
-    description: 'Kitchen order display',
-    href: '/admin/kitchen'
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: <Settings className="w-5 h-5" />,
-    description: 'System configuration',
-    href: '/admin/settings'
+    id: 'catalog',
+    label: 'Catalog & Inventory',
+    icon: <PackageSearch className="w-5 h-5" />,
+    description: 'Products, services, and categories',
+    href: '/admin/catalog'
   },
   {
     id: 'staff',
@@ -68,33 +56,25 @@ const adminSections = [
     href: '/admin/staff'
   },
   {
-    id: 'menu',
-    label: 'Manage Menu',
-    icon: <Menu className="w-5 h-5" />,
-    description: 'Categories and products',
-    href: '/admin/menu'
-  },
-  {
-    id: 'tables',
-    label: 'Manage Tables',
-    icon: <LayoutGrid className="w-5 h-5" />,
-    description: 'Dining table management',
-    href: '/admin/tables'
-  },
-  {
     id: 'reports',
     label: 'View Reports',
     icon: <BarChart3 className="w-5 h-5" />,
     description: 'Analytics and reports',
     href: '/admin/reports'
-  }
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: <Settings className="w-5 h-5" />,
+    description: 'System configuration',
+    href: '/admin/settings'
+  },
 ]
 
 export function AdminSidebar({ user }: AdminSidebarProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
-  const router = useRouter()
   const location = useLocation()
 
   // Responsive checks
@@ -144,8 +124,8 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                   <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="font-bold text-foreground">Admin Panel</h1>
-                  <p className="text-xs text-muted-foreground">Restaurant Management</p>
+                  <h1 className="font-bold text-foreground">Computer Shop POS</h1>
+                  <p className="text-xs text-muted-foreground">Sales and repair management</p>
                 </div>
               </div>
             )}

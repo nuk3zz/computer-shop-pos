@@ -27,7 +27,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'manager' | 'cashier' | 'kitchen';
+  role: 'admin' | 'manager' | 'sales' | 'technician';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -48,6 +48,7 @@ export interface Category {
   id: string;
   name: string;
   description?: string;
+  image_url?: string;
   color?: string;
   sort_order: number;
   is_active: boolean;
@@ -62,6 +63,8 @@ export interface Product {
   name: string;
   description?: string;
   price: number;
+  cost_price: number;
+  item_type: 'product' | 'service';
   image_url?: string;
   barcode?: string;
   sku?: string;
@@ -73,25 +76,14 @@ export interface Product {
   category?: Category;
 }
 
-// Table Types
-export interface DiningTable {
-  id: string;
-  table_number: string;
-  seating_capacity: number;
-  location?: string;
-  is_occupied: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 // Order Types
 export interface Order {
   id: string;
   order_number: string;
-  table_id?: string;
   user_id?: string;
   customer_name?: string;
-  order_type: 'dine_in' | 'takeout' | 'delivery';
+  customer_phone?: string;
+  order_type: 'sale' | 'service';
   status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
   subtotal: number;
   tax_amount: number;
@@ -102,7 +94,6 @@ export interface Order {
   updated_at: string;
   served_at?: string;
   completed_at?: string;
-  table?: DiningTable;
   user?: User;
   items?: OrderItem[];
   payments?: Payment[];
@@ -114,6 +105,7 @@ export interface OrderItem {
   product_id: string;
   quantity: number;
   unit_price: number;
+  unit_cost: number;
   total_price: number;
   special_instructions?: string;
   status: 'pending' | 'preparing' | 'ready' | 'served';
@@ -124,9 +116,9 @@ export interface OrderItem {
 }
 
 export interface CreateOrderRequest {
-  table_id?: string;
   customer_name?: string;
-  order_type: 'dine_in' | 'takeout' | 'delivery';
+  customer_phone?: string;
+  order_type: 'sale' | 'service';
   items: CreateOrderItem[];
   notes?: string;
 }
@@ -191,49 +183,20 @@ export interface DashboardStats {
   today_orders: number;
   today_revenue: number;
   active_orders: number;
-  occupied_tables: number;
+  open_repairs: number;
 }
 
 export interface SalesReportItem {
   date: string;
   order_count: number;
   revenue: number;
+  profit: number;
 }
 
 export interface OrdersReportItem {
   status: string;
   count: number;
   avg_amount: number;
-}
-
-// Kitchen Types
-export interface KitchenOrder {
-  id: string;
-  order_number: string;
-  table_id?: string;
-  table_number?: string;
-  order_type: string;
-  status: string;
-  customer_name?: string;
-  created_at: string;
-  items?: OrderItem[];
-}
-
-// Table Status Types
-export interface TableStatus {
-  total_tables: number;
-  occupied_tables: number;
-  available_tables: number;
-  occupancy_rate: number;
-  by_location: LocationStats[];
-}
-
-export interface LocationStats {
-  location: string;
-  total_tables: number;
-  occupied_tables: number;
-  available_tables: number;
-  occupancy_rate: number;
 }
 
 // Filter and Query Types
@@ -251,10 +214,3 @@ export interface ProductFilters {
   page?: number;
   per_page?: number;
 }
-
-export interface TableFilters {
-  location?: string;
-  occupied_only?: boolean;
-  available_only?: boolean;
-}
-

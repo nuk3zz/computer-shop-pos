@@ -11,7 +11,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'manager', 'server', 'counter', 'kitchen')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'manager', 'sales', 'technician')),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -29,18 +29,20 @@ CREATE TABLE categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Products/Menu Items table
+-- Products and services catalog
 CREATE TABLE products (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
+    cost_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('product', 'service')) DEFAULT 'product',
     image_url VARCHAR(500),
     barcode VARCHAR(50),
     sku VARCHAR(50) UNIQUE,
     is_available BOOLEAN DEFAULT true,
-    preparation_time INTEGER DEFAULT 0, -- in minutes
+    preparation_time INTEGER DEFAULT 0, -- optional service duration in minutes
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -64,7 +66,8 @@ CREATE TABLE orders (
     table_id UUID REFERENCES dining_tables(id) ON DELETE SET NULL,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- Staff who created the order
     customer_name VARCHAR(100),
-    order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('dine_in', 'takeout', 'delivery')),
+    customer_phone VARCHAR(30),
+    order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('sale', 'service')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled')) DEFAULT 'pending',
     subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
     tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -84,6 +87,7 @@ CREATE TABLE order_items (
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL DEFAULT 1,
     unit_price DECIMAL(10,2) NOT NULL,
+    unit_cost DECIMAL(10,2) NOT NULL DEFAULT 0,
     total_price DECIMAL(10,2) NOT NULL,
     special_instructions TEXT,
     status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'preparing', 'ready', 'served')) DEFAULT 'pending',
@@ -136,8 +140,10 @@ CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX idx_order_items_product_id ON order_items(product_id);
 CREATE INDEX idx_products_category_id ON products(category_id);
 CREATE INDEX idx_products_is_available ON products(is_available);
+CREATE INDEX idx_products_item_type ON products(item_type);
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_inventory_product_id ON inventory(product_id);
+CREATE UNIQUE INDEX idx_inventory_product_unique ON inventory(product_id);
 
 -- Create triggers for updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -155,4 +161,3 @@ CREATE TRIGGER update_dining_tables_updated_at BEFORE UPDATE ON dining_tables FO
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_order_items_updated_at BEFORE UPDATE ON order_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_inventory_updated_at BEFORE UPDATE ON inventory FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-

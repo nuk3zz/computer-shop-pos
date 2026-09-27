@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
@@ -12,18 +11,16 @@ import {
   ShoppingCart,
   Calendar,
   Download,
-  Search,
-  Filter,
   FileBarChart,
-  Users,
-  Clock
 } from 'lucide-react'
 import apiClient from '@/api/client'
+import { formatMoney } from '@/lib/shop-settings'
 
 interface SalesReportItem {
   date: string
   order_count: number
   revenue: number
+  profit: number
 }
 
 interface OrdersReportItem {
@@ -53,16 +50,10 @@ export function AdminReports() {
   })
 
   // Format currency helper
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
-
   // Calculate totals from real data
   const totalRevenue = salesData?.reduce((sum: number, item: SalesReportItem) => sum + item.revenue, 0) || 0
   const totalOrders = salesData?.reduce((sum: number, item: SalesReportItem) => sum + item.order_count, 0) || 0
+  const totalProfit = salesData?.reduce((sum: number, item: SalesReportItem) => sum + item.profit, 0) || 0
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
   const LoadingState = () => (
@@ -78,7 +69,7 @@ export function AdminReports() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
           <p className="text-muted-foreground">
-            Detailed insights into your restaurant performance
+            Sales, service, and revenue insights for your computer shop
           </p>
         </div>
         <div className="flex gap-2">
@@ -127,7 +118,7 @@ export function AdminReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {salesLoading ? '...' : formatCurrency(totalRevenue)}
+              {salesLoading ? '...' : formatMoney(totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               {selectedPeriod === 'today' ? 'Today' : `This ${selectedPeriod}`}
@@ -157,7 +148,7 @@ export function AdminReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {salesLoading ? '...' : formatCurrency(averageOrderValue)}
+              {salesLoading ? '...' : formatMoney(averageOrderValue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Per order value
@@ -167,13 +158,13 @@ export function AdminReports() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Gross Profit</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">+12.5%</div>
+            <div className="text-2xl font-bold text-green-600">{salesLoading ? '...' : formatMoney(totalProfit)}</div>
             <p className="text-xs text-muted-foreground">
-              Compared to previous period
+              Revenue minus saved item costs
             </p>
           </CardContent>
         </Card>
@@ -206,20 +197,22 @@ export function AdminReports() {
               ) : salesData && salesData.length > 0 ? (
                 <div className="space-y-4">
                   <div className="border rounded-lg">
-                    <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 font-medium text-sm">
+                    <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 font-medium text-sm">
                       <div>Date/Period</div>
                       <div className="text-center">Orders</div>
                       <div className="text-center">Revenue</div>
+                      <div className="text-center">Profit</div>
                     </div>
                     {salesData.map((item: SalesReportItem, index: number) => (
-                      <div key={index} className="grid grid-cols-3 gap-4 p-4 border-t text-sm">
+                      <div key={index} className="grid grid-cols-4 gap-4 p-4 border-t text-sm">
                         <div className="font-medium">
                           {new Date(item.date).toLocaleDateString()}
                         </div>
                         <div className="text-center">{item.order_count}</div>
                         <div className="text-center font-medium">
-                          {formatCurrency(item.revenue)}
+                          {formatMoney(item.revenue)}
                         </div>
+                        <div className="text-center font-medium text-emerald-700">{formatMoney(item.profit)}</div>
                       </div>
                     ))}
                   </div>
@@ -266,7 +259,7 @@ export function AdminReports() {
                         </div>
                         <div className="text-center">{item.count}</div>
                         <div className="text-center font-medium">
-                          {formatCurrency(item.avg_amount)}
+                          {formatMoney(item.avg_amount)}
                         </div>
                       </div>
                     ))}
@@ -305,19 +298,19 @@ export function AdminReports() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {formatCurrency(incomeData.summary?.gross_income || 0)}
+                        {formatMoney(incomeData.summary?.gross_income || 0)}
                       </div>
                       <div className="text-sm text-muted-foreground">Gross Income</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">
-                        {formatCurrency(incomeData.summary?.tax_collected || 0)}
+                        {formatMoney(incomeData.summary?.tax_collected || 0)}
                       </div>
                       <div className="text-sm text-muted-foreground">Tax Collected</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {formatCurrency(incomeData.summary?.net_income || 0)}
+                        {formatMoney(incomeData.summary?.net_income || 0)}
                       </div>
                       <div className="text-sm text-muted-foreground">Net Income</div>
                     </div>
@@ -339,9 +332,9 @@ export function AdminReports() {
                             {new Date(item.period).toLocaleDateString()}
                           </div>
                           <div className="text-center">{item.orders}</div>
-                          <div className="text-center">{formatCurrency(item.gross)}</div>
-                          <div className="text-center">{formatCurrency(item.tax)}</div>
-                          <div className="text-center font-medium">{formatCurrency(item.net)}</div>
+                          <div className="text-center">{formatMoney(item.gross)}</div>
+                          <div className="text-center">{formatMoney(item.tax)}</div>
+                          <div className="text-center font-medium">{formatMoney(item.net)}</div>
                         </div>
                       ))}
                     </div>

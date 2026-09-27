@@ -67,4 +67,25 @@
 
 - The current LAN address can change unless the router reserves an address for the Mac Mini's Ethernet adapter.
 - Backups stored on the same Mac protect against application mistakes, not disk loss or theft; real shop use requires a second physical or remote copy.
-- The application remains an early computer-shop conversion with restaurant-era data and screens still to replace before production business use.
+- At that checkpoint the application still contained restaurant-era data and screens; the later conversion session below supersedes that limitation for the active UI.
+
+## 2026-09-27 - Computer-shop workflow conversion
+
+### Worked
+
+- Replaced the active restaurant navigation and screens with Sales & Services, Repair Tickets, and Catalog & Inventory; legacy restaurant routes now redirect and their unused frontend modules were removed.
+- Reset the live demo database to seven computer categories and thirteen starter products/services after creating and checksum-verifying a recoverable PostgreSQL/uploads backup.
+- Added explicit product/service type, actual cost, selling price, customer phone, and order-line cost snapshots through a forward database migration.
+- Service items now automatically switch checkout to a repair ticket, and the queue tracks Waiting, Diagnosing, In progress, Waiting for customer, and Delivered / completed.
+- Added editable WhatsApp message templates and `wa.me` links that include the customer phone and job number without requiring an API integration.
+- Defaulted UI currency to LKR, tax and service charge to zero, retained USD as an option, and recorded a future Discord webhook setting without sending webhooks yet.
+- Added a responsive tile-size slider and compact square catalog cards; uploaded images now render in the selling grid and cart.
+- Completed sales reports now calculate gross profit from the cost captured on each order line; services default to zero cost.
+- Removed obsolete restaurant frontend modules and repaired inherited TypeScript issues until both `npm run type-check` and the production Vite build pass.
+- Runtime API checks verified service-ticket creation, phone persistence, zero tax, repair status updates, and positive product-profit reporting; temporary verification transactions and accounts were removed.
+
+### Important boundaries
+
+- Settings are currently stored in browser local storage, so another device does not yet share them; server-persisted settings remain a later hardening task.
+- The Discord webhook field is a saved placeholder only. No message is transmitted until a dedicated integration is implemented.
+- Cost snapshots and profit reporting are implemented, but supplier purchases and atomic stock deductions still require the inventory phase.

@@ -25,8 +25,7 @@ import {
   Trash2,
   Shield,
   Mail,
-  Calendar,
-  MoreHorizontal
+  Calendar
 } from "lucide-react"
 import type { User } from "@/types"
 
@@ -49,9 +48,8 @@ export function AdminStaffTable({
     const colors: Record<string, string> = {
       'admin': 'bg-red-100 text-red-800 hover:bg-red-200',
       'manager': 'bg-purple-100 text-purple-800 hover:bg-purple-200',
-      'server': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
-      'counter': 'bg-green-100 text-green-800 hover:bg-green-200',
-      'kitchen': 'bg-orange-100 text-orange-800 hover:bg-orange-200',
+      'sales': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+      'technician': 'bg-orange-100 text-orange-800 hover:bg-orange-200',
     }
     return colors[role.toLowerCase()] || 'bg-gray-100 text-gray-800'
   }

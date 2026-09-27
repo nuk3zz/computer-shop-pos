@@ -14,7 +14,7 @@ type User struct {
 	PasswordHash string    `json:"-"` // Don't expose password hash in JSON
 	FirstName    string    `json:"first_name"`
 	LastName     string    `json:"last_name"`
-	Role         string    `json:"role"` // admin, manager, server, counter, kitchen
+	Role         string    `json:"role"` // admin, manager, sales, technician
 	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -39,11 +39,13 @@ type Product struct {
 	Name            string     `json:"name"`
 	Description     *string    `json:"description"`
 	Price           float64    `json:"price"`
+	CostPrice       float64    `json:"cost_price"`
+	ItemType        string     `json:"item_type"` // product, service
 	ImageURL        *string    `json:"image_url"`
 	Barcode         *string    `json:"barcode"`
 	SKU             *string    `json:"sku"`
 	IsAvailable     bool       `json:"is_available"`
-	PreparationTime int        `json:"preparation_time"` // in minutes
+	PreparationTime int        `json:"preparation_time"` // optional service duration in minutes
 	SortOrder       int        `json:"sort_order"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
@@ -68,7 +70,8 @@ type Order struct {
 	TableID        *uuid.UUID   `json:"table_id"`
 	UserID         *uuid.UUID   `json:"user_id"`
 	CustomerName   *string      `json:"customer_name"`
-	OrderType      string       `json:"order_type"` // dine_in, takeout, delivery
+	CustomerPhone  *string      `json:"customer_phone"`
+	OrderType      string       `json:"order_type"` // sale, service
 	Status         string       `json:"status"`     // pending, confirmed, preparing, ready, served, completed, cancelled
 	Subtotal       float64      `json:"subtotal"`
 	TaxAmount      float64      `json:"tax_amount"`
@@ -92,6 +95,7 @@ type OrderItem struct {
 	ProductID           uuid.UUID `json:"product_id"`
 	Quantity            int       `json:"quantity"`
 	UnitPrice           float64   `json:"unit_price"`
+	UnitCost            float64   `json:"unit_cost"`
 	TotalPrice          float64   `json:"total_price"`
 	SpecialInstructions *string   `json:"special_instructions"`
 	Status              string    `json:"status"` // pending, preparing, ready, served
@@ -144,11 +148,12 @@ type OrderStatusHistory struct {
 
 // CreateOrderRequest represents the request to create a new order
 type CreateOrderRequest struct {
-	TableID      *uuid.UUID        `json:"table_id"`
-	CustomerName *string           `json:"customer_name"`
-	OrderType    string            `json:"order_type"`
-	Items        []CreateOrderItem `json:"items"`
-	Notes        *string           `json:"notes"`
+	TableID       *uuid.UUID        `json:"table_id"`
+	CustomerName  *string           `json:"customer_name"`
+	CustomerPhone *string           `json:"customer_phone"`
+	OrderType     string            `json:"order_type"`
+	Items         []CreateOrderItem `json:"items"`
+	Notes         *string           `json:"notes"`
 }
 
 // CreateOrderItem represents an item in the order creation request

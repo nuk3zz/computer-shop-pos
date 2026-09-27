@@ -6,9 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-LK', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'LKR',
   }).format(amount)
 }
 
@@ -110,4 +110,3 @@ export function debounce<T extends (...args: any[]) => any>(
     timeout = setTimeout(() => func(...args), wait)
   }
 }
-

@@ -2,7 +2,7 @@
 
 A computer sales, inventory, repair-workflow, and invoicing system built from the open-source [`madebyaris/poinf-of-sales`](https://github.com/madebyaris/poinf-of-sales) project.
 
-> This fork is under active conversion from a restaurant POS. The current development focus is a computer parts and repair shop; the final shop brand has not been chosen yet.
+The active application is now focused on computer parts, services, and repair tickets. The final shop brand has not been chosen yet, so “Computer Shop POS” remains the temporary name.
 
 ## V1 direction
 
@@ -10,7 +10,7 @@ A computer sales, inventory, repair-workflow, and invoicing system built from th
 - Uploaded thumbnails for fast item recognition.
 - Supplier cost, selling price, stock, and low-stock visibility.
 - Sales and repair/work orders containing products, services, or both.
-- Owner-editable workflow labels backed by stable internal status keys.
+- Trackable service tickets with customer phone details and WhatsApp status messages.
 - Revenue, cost, gross-profit, and margin reports.
 - Basic printable invoices, with a custom template planned later.
 
@@ -24,7 +24,7 @@ The confirmed scope and staged implementation plan are in the [product brief](kn
 - JWT authentication and role-based access.
 - Docker Compose development and production definitions.
 
-The inherited catalog, order, payment, report, and receipt components are being converted incrementally. Restaurant-specific screens may remain during this transition and should not be treated as final product behavior.
+The active navigation and workflows no longer expose restaurant tables, servers, kitchen screens, or food demo data. Legacy database compatibility structures remain internal while later inventory and invoice work continues.
 
 ## Mac Mini self-hosting
 

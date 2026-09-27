@@ -6,9 +6,13 @@ export const passwordSchema = z.string().min(6, 'Password must be at least 6 cha
 export const requiredStringSchema = z.string().min(1, 'This field is required')
 export const positiveNumberSchema = z.number().min(0, 'Must be a positive number')
 export const priceSchema = z.number().min(0.01, 'Price must be greater than 0')
+const imageUrlSchema = z.string().refine(
+  (value) => value === '' || value.startsWith('/uploads/') || URL.canParse(value),
+  'Use a valid image URL',
+)
 
 // User/Staff related schemas
-export const userRoles = ['admin', 'manager', 'server', 'counter', 'kitchen'] as const
+export const userRoles = ['admin', 'manager', 'sales', 'technician'] as const
 export const userRoleSchema = z.enum(userRoles)
 
 export const createUserSchema = z.object({
@@ -38,10 +42,12 @@ export const createProductSchema = z.object({
   name: requiredStringSchema.min(2, 'Product name must be at least 2 characters'),
   description: z.string().optional(),
   price: priceSchema,
+  cost_price: z.number().min(0, 'Cost cannot be negative').default(0),
+  item_type: z.enum(['product', 'service']).default('product'),
   category_id: requiredStringSchema,
-  image_url: z.string().url().optional().or(z.literal('')),
+  image_url: imageUrlSchema.optional(),
   status: productStatusSchema.default('active'),
-  preparation_time: z.number().min(0).max(120).default(5), // minutes
+  preparation_time: z.number().min(0).max(43200).default(0), // optional service duration, up to 30 days
 })
 
 export const updateProductSchema = createProductSchema.partial().extend({
@@ -52,7 +58,7 @@ export const updateProductSchema = createProductSchema.partial().extend({
 export const createCategorySchema = z.object({
   name: requiredStringSchema.min(2, 'Category name must be at least 2 characters'),
   description: z.string().optional(),
-  image_url: z.string().url().optional().or(z.literal('')),
+  image_url: imageUrlSchema.optional(),
   sort_order: z.number().min(0).default(0),
 })
 
@@ -60,26 +66,11 @@ export const updateCategorySchema = createCategorySchema.partial().extend({
   id: z.string().or(z.number()),
 })
 
-// Table related schemas
-export const tableStatusValues = ['available', 'occupied', 'reserved', 'maintenance'] as const
-export const tableStatusSchema = z.enum(tableStatusValues)
-
-export const createTableSchema = z.object({
-  table_number: requiredStringSchema.min(1, 'Table number is required'),
-  seats: z.number().min(1, 'Table must have at least 1 seat').max(20, 'Maximum 20 seats per table'),
-  status: tableStatusSchema.default('available'),
-  location: z.string().optional(),
-})
-
-export const updateTableSchema = createTableSchema.partial().extend({
-  id: z.string().or(z.number()),
-})
-
 // Order related schemas
-export const orderTypeValues = ['dine-in', 'take-away', 'delivery'] as const
+export const orderTypeValues = ['sale', 'service'] as const
 export const orderTypeSchema = z.enum(orderTypeValues)
 
-export const orderStatusValues = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled'] as const
+export const orderStatusValues = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'] as const
 export const orderStatusSchema = z.enum(orderStatusValues)
 
 export const orderItemSchema = z.object({
@@ -89,7 +80,6 @@ export const orderItemSchema = z.object({
 })
 
 export const createOrderSchema = z.object({
-  table_id: z.number().optional(),
   customer_name: z.string().optional(),
   order_type: orderTypeSchema,
   notes: z.string().optional(),
@@ -98,7 +88,7 @@ export const createOrderSchema = z.object({
 
 // Settings schemas
 export const posSettingsSchema = z.object({
-  restaurant_name: requiredStringSchema,
+  shop_name: requiredStringSchema,
   address: z.string().optional(),
   phone: z.string().optional(),
   email: emailSchema.optional(),
@@ -122,8 +112,6 @@ export type CreateProductData = z.infer<typeof createProductSchema>
 export type UpdateProductData = z.infer<typeof updateProductSchema>
 export type CreateCategoryData = z.infer<typeof createCategorySchema>
 export type UpdateCategoryData = z.infer<typeof updateCategorySchema>
-export type CreateTableData = z.infer<typeof createTableSchema>
-export type UpdateTableData = z.infer<typeof updateTableSchema>
 export type CreateOrderData = z.infer<typeof createOrderSchema>
 export type LoginData = z.infer<typeof loginSchema>
 export type POSSettingsData = z.infer<typeof posSettingsSchema>

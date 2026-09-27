@@ -7,7 +7,6 @@ import type {
   User,
   Product,
   Category,
-  DiningTable,
   Order,
   Payment,
   CreateOrderRequest,
@@ -17,10 +16,8 @@ import type {
   DashboardStats,
   SalesReportItem,
   OrdersReportItem,
-  TableStatus,
   OrderFilters,
   ProductFilters,
-  TableFilters,
 } from '@/types';
 
 class APIClient {
@@ -136,36 +133,6 @@ class APIClient {
     });
   }
 
-  // Table endpoints
-  async getTables(filters?: TableFilters): Promise<APIResponse<DiningTable[]>> {
-    return this.request({
-      method: 'GET',
-      url: '/tables',
-      params: filters,
-    });
-  }
-
-  async getTable(id: string): Promise<APIResponse<DiningTable>> {
-    return this.request({
-      method: 'GET',
-      url: `/tables/${id}`,
-    });
-  }
-
-  async getTablesByLocation(): Promise<APIResponse<any[]>> {
-    return this.request({
-      method: 'GET',
-      url: '/tables/by-location',
-    });
-  }
-
-  async getTableStatus(): Promise<APIResponse<TableStatus>> {
-    return this.request({
-      method: 'GET',
-      url: '/tables/status',
-    });
-  }
-
   // Order endpoints
   async getOrders(filters?: OrderFilters): Promise<PaginatedResponse<Order[]>> {
     return this.request({
@@ -253,54 +220,12 @@ class APIClient {
     });
   }
 
-  // Kitchen endpoints
-  async getKitchenOrders(status?: string): Promise<APIResponse<Order[]>> {
-    return this.request({
-      method: 'GET',
-      url: '/kitchen/orders',
-      params: status && status !== 'all' ? { status } : {},
-    });
-  }
-
-  async updateOrderItemStatus(orderId: string, itemId: string, status: string): Promise<APIResponse> {
-    return this.request({
-      method: 'PATCH',
-      url: `/kitchen/orders/${orderId}/items/${itemId}/status`,
-      data: { status },
-    });
-  }
-
-  // Role-specific order creation
-  async createServerOrder(order: CreateOrderRequest): Promise<APIResponse<Order>> {
-    return this.request({
-      method: 'POST',
-      url: '/server/orders',
-      data: order,
-    });
-  }
-
-  async createCounterOrder(order: CreateOrderRequest): Promise<APIResponse<Order>> {
-    return this.request({
-      method: 'POST',
-      url: '/counter/orders',
-      data: order,
-    });
-  }
-
-  // Counter payment processing
-  async processCounterPayment(orderId: string, payment: ProcessPaymentRequest): Promise<APIResponse<Payment>> {
-    return this.request({
-      method: 'POST',
-      url: `/counter/orders/${orderId}/payments`,
-      data: payment,
-    });
-  }
-
   // User management endpoints (Admin only)
-  async getUsers(): Promise<APIResponse<User[]>> {
+  async getUsers(params?: { page?: number; limit?: number; search?: string }): Promise<APIResponse<User[]>> {
     return this.request({
       method: 'GET',
       url: '/admin/users',
+      params,
     });
   }
 
@@ -397,28 +322,6 @@ class APIClient {
       url: '/admin/categories',
       params: normalizedParams
     });
-  }
-
-  // Admin tables endpoint with pagination
-  async getAdminTables(params?: { page?: number, limit?: number, search?: string, status?: string }): Promise<APIResponse<DiningTable[]>> {
-    return this.request({ 
-      method: 'GET', 
-      url: '/admin/tables',
-      params 
-    });
-  }
-
-  // Admin-specific table management
-  async createTable(tableData: any): Promise<APIResponse<DiningTable>> {
-    return this.request({ method: 'POST', url: '/admin/tables', data: tableData });
-  }
-
-  async updateTable(id: string, tableData: any): Promise<APIResponse<DiningTable>> {
-    return this.request({ method: 'PUT', url: `/admin/tables/${id}`, data: tableData });
-  }
-
-  async deleteTable(id: string): Promise<APIResponse> {
-    return this.request({ method: 'DELETE', url: `/admin/tables/${id}` });
   }
 
   // Utility methods

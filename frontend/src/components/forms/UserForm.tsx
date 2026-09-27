@@ -45,7 +45,7 @@ export function UserForm({ user, onSuccess, onCancel, mode = 'create' }: UserFor
         password: '',
         first_name: '',
         last_name: '',
-        role: 'server' as const,
+        role: 'sales' as const,
       }
 
   const form = useForm<CreateUserData | UpdateUserData>({
@@ -56,7 +56,7 @@ export function UserForm({ user, onSuccess, onCancel, mode = 'create' }: UserFor
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateUserData) => apiClient.createUser(data),
-    onSuccess: (response) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       toastHelpers.userCreated(`${form.getValues('first_name')} ${form.getValues('last_name')}`)
       form.reset()
@@ -70,7 +70,7 @@ export function UserForm({ user, onSuccess, onCancel, mode = 'create' }: UserFor
   // Update mutation  
   const updateMutation = useMutation({
     mutationFn: (data: UpdateUserData) => apiClient.updateUser(data.id.toString(), data),
-    onSuccess: (response) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       toastHelpers.apiSuccess('Update', `User ${form.getValues('first_name')} ${form.getValues('last_name')}`)
       onSuccess?.()

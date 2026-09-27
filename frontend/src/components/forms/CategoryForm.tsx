@@ -52,11 +52,11 @@ export function CategoryForm({ category, onSuccess, onCancel, mode = 'create' }:
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateCategoryData) => apiClient.createCategory(data),
-    onSuccess: (response) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
       queryClient.invalidateQueries({ queryKey: ['categories'] })
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
-      toastHelpers.categoryCreated(form.getValues('name'))
+      toastHelpers.categoryCreated(form.getValues('name') || 'Category')
       form.reset()
       onSuccess?.()
     },
@@ -68,7 +68,7 @@ export function CategoryForm({ category, onSuccess, onCancel, mode = 'create' }:
   // Update mutation  
   const updateMutation = useMutation({
     mutationFn: (data: UpdateCategoryData) => apiClient.updateCategory(data.id.toString(), data),
-    onSuccess: (response) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
       queryClient.invalidateQueries({ queryKey: ['categories'] })
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
@@ -117,7 +117,7 @@ export function CategoryForm({ category, onSuccess, onCancel, mode = 'create' }:
                 name="name"
                 label="Category Name"
                 placeholder="Enter category name"
-                description="The name that will appear in the menu sections"
+                description="The name shown in catalog filters"
               />
               
               <TextareaField
@@ -126,7 +126,7 @@ export function CategoryForm({ category, onSuccess, onCancel, mode = 'create' }:
                 label="Description"
                 placeholder="Describe this category..."
                 rows={3}
-                description="Optional description for menu organization"
+                description="Optional description for catalog organization"
               />
 
               <TextInputField
@@ -146,7 +146,7 @@ export function CategoryForm({ category, onSuccess, onCancel, mode = 'create' }:
                 label="Sort Order"
                 min={0}
                 max={999}
-                description="Lower numbers appear first in menus"
+                description="Lower numbers appear first in the catalog"
               />
               
               {/* Empty column for layout balance */}
