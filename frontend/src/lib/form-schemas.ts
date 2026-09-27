@@ -38,7 +38,7 @@ export const createProductSchema = z.object({
   name: requiredStringSchema.min(2, 'Product name must be at least 2 characters'),
   description: z.string().optional(),
   price: priceSchema,
-  category_id: z.string().or(z.number()).transform(val => Number(val)),
+  category_id: requiredStringSchema,
   image_url: z.string().url().optional().or(z.literal('')),
   status: productStatusSchema.default('active'),
   preparation_time: z.number().min(0).max(120).default(5), // minutes

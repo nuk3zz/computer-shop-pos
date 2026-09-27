@@ -30,6 +30,7 @@ services:
       - DB_NAME=pos_system
       - PORT=8080
       - GIN_MODE=debug
+      - UPLOAD_DIR=/app/uploads
     ports:
       - "8080:8080"
     depends_on:
@@ -38,6 +39,7 @@ services:
       - pos-network
     volumes:
       - ./backend:/app
+      - ./uploads:/app/uploads
     restart: unless-stopped
 
   # Frontend (Development)
@@ -67,4 +69,3 @@ volumes:
 networks:
   pos-network:
     driver: bridge
-

@@ -9,7 +9,6 @@ import type {
   Category,
   DiningTable,
   Order,
-  OrderItem,
   Payment,
   CreateOrderRequest,
   UpdateOrderStatusRequest,
@@ -18,7 +17,6 @@ import type {
   DashboardStats,
   SalesReportItem,
   OrdersReportItem,
-  KitchenOrder,
   TableStatus,
   OrderFilters,
   ProductFilters,
@@ -192,7 +190,7 @@ class APIClient {
     });
   }
 
-  async updateOrderStatus(id: string, status: OrderStatus, notes?: string): Promise<APIResponse<Order>> {
+  async updateOrderStatus(id: string, status: UpdateOrderStatusRequest['status'], notes?: string): Promise<APIResponse<Order>> {
     const statusUpdate: UpdateOrderStatusRequest = { status, notes };
     return this.request({
       method: 'PATCH',
@@ -342,6 +340,18 @@ class APIClient {
     return this.request({ method: 'DELETE', url: `/admin/products/${id}` });
   }
 
+  async uploadProductImage(file: File): Promise<APIResponse<{ url: string; content_type: string; size: number }>> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return this.request({
+      method: 'POST',
+      url: '/admin/uploads/images',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  }
+
   // Admin-specific category management  
   async createCategory(categoryData: any): Promise<APIResponse<Category>> {
     return this.request({ method: 'POST', url: '/admin/categories', data: categoryData });
@@ -433,4 +443,3 @@ class APIClient {
 // Create and export a singleton instance
 export const apiClient = new APIClient();
 export default apiClient;
-

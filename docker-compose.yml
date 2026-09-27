@@ -30,6 +30,7 @@ services:
       - DB_PASSWORD=postgres123
       - DB_NAME=pos_system
       - PORT=8080
+      - UPLOAD_DIR=/root/uploads
     ports:
       - "8080:8080"
     depends_on:
@@ -38,6 +39,7 @@ services:
       - pos-network
     volumes:
       - ./backend:/app
+      - ./uploads:/root/uploads
     restart: unless-stopped
 
   # Frontend (TanStack Start)
@@ -65,4 +67,3 @@ volumes:
 networks:
   pos-network:
     driver: bridge
-

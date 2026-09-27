@@ -47,6 +47,14 @@ func main() {
 	// Initialize Gin router
 	gin.SetMode(getEnv("GIN_MODE", "release"))
 	router := gin.New()
+	router.MaxMultipartMemory = 6 << 20
+
+	// Product and service images are stored outside the database and served by the API.
+	uploadDir := getEnv("UPLOAD_DIR", "uploads")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		log.Fatalf("Failed to create upload directory: %v", err)
+	}
+	router.Static("/uploads", uploadDir)
 
 	// Add middleware
 	router.Use(gin.Logger())
@@ -68,7 +76,7 @@ func main() {
 
 	// Initialize API routes
 	apiRoutes := router.Group("/api/v1")
-	api.SetupRoutes(apiRoutes, db, authMiddleware)
+	api.SetupRoutes(apiRoutes, db, authMiddleware, uploadDir)
 
 	// Start server
 	port := getEnv("PORT", "8080")

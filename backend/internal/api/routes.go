@@ -18,13 +18,14 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.HandlerFunc) {
+func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.HandlerFunc, uploadDir string) {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(db)
 	orderHandler := handlers.NewOrderHandler(db)
 	productHandler := handlers.NewProductHandler(db)
 	paymentHandler := handlers.NewPaymentHandler(db)
 	tableHandler := handlers.NewTableHandler(db)
+	imageUploadHandler := handlers.NewImageUploadHandler(uploadDir)
 
 	// Public routes (no authentication required)
 	public := router.Group("/")
@@ -100,6 +101,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.POST("/products", createProduct(db))
 		admin.PUT("/products/:id", updateProduct(db))
 		admin.DELETE("/products/:id", deleteProduct(db))
+		admin.POST("/uploads/images", imageUploadHandler.UploadProductImage)
 
 		// Table management with pagination
 		admin.GET("/tables", getAdminTables(db)) // Add pagination
@@ -787,6 +789,7 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			ImageURL        *string `json:"image_url"`
 			Barcode         *string `json:"barcode"`
 			SKU             *string `json:"sku"`
+			IsAvailable     *bool   `json:"is_available"`
 			PreparationTime int     `json:"preparation_time"`
 			SortOrder       int     `json:"sort_order"`
 		}
@@ -802,10 +805,10 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 
 		var productID string
 		err := db.QueryRow(`
-			INSERT INTO products (category_id, name, description, price, image_url, barcode, sku, preparation_time, sort_order)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			INSERT INTO products (category_id, name, description, price, image_url, barcode, sku, is_available, preparation_time, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true), $9, $10)
 			RETURNING id
-		`, req.CategoryID, req.Name, req.Description, req.Price, req.ImageURL, req.Barcode, req.SKU, req.PreparationTime, req.SortOrder).Scan(&productID)
+		`, req.CategoryID, req.Name, req.Description, req.Price, req.ImageURL, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
 
 		if err != nil {
 			c.JSON(500, gin.H{

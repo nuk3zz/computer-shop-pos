@@ -67,9 +67,6 @@ postgres_dev_data/
 *.test
 *.out
 
-# Go mod cache
-go.sum
-
 # Air build files (Go hot reloading)
 tmp/
 

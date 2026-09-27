@@ -1,5 +1,4 @@
 import { toast } from "@/hooks/use-toast"
-import { CheckCircle, XCircle, AlertTriangle, Info } from "lucide-react"
 
 export const toastHelpers = {
   success: (title: string, description?: string) => {
@@ -104,10 +103,24 @@ export const toastHelpers = {
     )
   },
 
+  productDeleted: (productName: string) => {
+    return toastHelpers.success(
+      "Product Deleted",
+      `"${productName}" has been deleted successfully.`
+    )
+  },
+
   categoryUpdated: (categoryName: string) => {
     return toastHelpers.success(
       "Category Updated", 
       `Category "${categoryName}" has been updated successfully.`
+    )
+  },
+
+  categoryDeleted: (categoryName: string) => {
+    return toastHelpers.success(
+      "Category Deleted",
+      `Category "${categoryName}" has been deleted successfully.`
     )
   },
 
@@ -147,4 +160,3 @@ export const toastHelpers = {
     )
   }
 }
-

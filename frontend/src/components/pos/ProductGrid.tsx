@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Clock, Loader2, Package } from 'lucide-react'
+import { Plus, Clock, Package } from 'lucide-react'
 import { formatCurrency, getPreparationTimeDisplay } from '@/lib/utils'
+import { getMediaUrl } from '@/lib/media'
 import type { Product } from '@/types'
 
 interface ProductGridProps {
@@ -10,7 +11,6 @@ interface ProductGridProps {
   onProductSelect: (product: Product) => void
   isLoading: boolean
 }
-
 export function ProductGrid({ products, onProductSelect, isLoading }: ProductGridProps) {
   if (isLoading) {
     return (
@@ -62,7 +62,7 @@ export function ProductGrid({ products, onProductSelect, isLoading }: ProductGri
               <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg mb-3 flex items-center justify-center relative">
                 {product.image_url ? (
                   <img 
-                    src={product.image_url} 
+                    src={getMediaUrl(product.image_url)}
                     alt={product.name}
                     className="w-full h-full object-cover rounded-lg"
                   />

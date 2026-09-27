@@ -26,10 +26,10 @@ import {
   Package,
   DollarSign,
   Clock,
-  Image,
   Tag
 } from "lucide-react"
 import type { Product, Category } from "@/types"
+import { getMediaUrl } from "@/lib/media"
 
 interface AdminMenuTableProps {
   data: Product[]
@@ -38,7 +38,6 @@ interface AdminMenuTableProps {
   onDelete: (product: Product) => void
   isLoading?: boolean
 }
-
 export function AdminMenuTable({
   data,
   categories,
@@ -97,7 +96,7 @@ export function AdminMenuTable({
             <div className="flex-shrink-0">
               {product.image_url ? (
                 <img 
-                  src={product.image_url} 
+                  src={getMediaUrl(product.image_url)}
                   alt={product.name}
                   className="h-12 w-12 rounded-lg object-cover"
                 />

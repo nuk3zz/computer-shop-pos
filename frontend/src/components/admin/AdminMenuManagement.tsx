@@ -25,16 +25,15 @@ import { AdminMenuTable } from '@/components/admin/AdminMenuTable'
 import { AdminCategoriesTable } from '@/components/admin/AdminCategoriesTable'
 import { PaginationControlsComponent } from '@/components/ui/pagination-controls'
 import { usePagination } from '@/hooks/usePagination'
-import { ProductListSkeleton, CategoryListSkeleton, SearchingSkeleton } from '@/components/ui/skeletons'
+import { ProductListSkeleton, CategoryListSkeleton } from '@/components/ui/skeletons'
 import { InlineLoading } from '@/components/ui/loading-spinner'
 import type { Product, Category } from '@/types'
+import { getMediaUrl } from '@/lib/media'
 
-type ViewMode = 'list' | 'product-form' | 'category-form'
 type DisplayMode = 'table' | 'cards'
 type ActiveTab = 'products' | 'categories'
 
 export function AdminMenuManagement() {
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [displayMode, setDisplayMode] = useState<DisplayMode>('table')
   const [activeTab, setActiveTab] = useState<ActiveTab>('products')
   const [searchTerm, setSearchTerm] = useState('')
@@ -117,10 +116,10 @@ export function AdminMenuManagement() {
 
   // Delete product mutation
   const deleteProductMutation = useMutation({
-    mutationFn: (id: string) => apiClient.deleteProduct(id),
-    onSuccess: (_, productId) => {
+    mutationFn: ({ id }: { id: string; name: string }) => apiClient.deleteProduct(id),
+    onSuccess: (_, product) => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
-      toastHelpers.productDeleted(productId)
+      toastHelpers.productDeleted(product.name)
     },
     onError: (error: any) => {
       toastHelpers.apiError('Delete product', error)
@@ -129,10 +128,10 @@ export function AdminMenuManagement() {
 
   // Delete category mutation
   const deleteCategoryMutation = useMutation({
-    mutationFn: (id: string) => apiClient.deleteCategory(id),
-    onSuccess: (_, categoryId) => {
+    mutationFn: ({ id }: { id: string; name: string }) => apiClient.deleteCategory(id),
+    onSuccess: (_, category) => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
-      toastHelpers.categoryDeleted(categoryId)
+      toastHelpers.categoryDeleted(category.name)
     },
     onError: (error: any) => {
       toastHelpers.apiError('Delete category', error)
@@ -144,7 +143,6 @@ export function AdminMenuManagement() {
     setShowCreateCategoryForm(false)
     setEditingProduct(null)
     setEditingCategory(null)
-    setViewMode('list')
   }
 
   const handleCancelForm = () => {
@@ -157,13 +155,13 @@ export function AdminMenuManagement() {
 
   const handleDeleteProduct = (product: Product) => {
     if (confirm(`Are you sure you want to delete "${product.name}"?`)) {
-      deleteProductMutation.mutate(product.id.toString())
+      deleteProductMutation.mutate({ id: product.id.toString(), name: product.name })
     }
   }
 
   const handleDeleteCategory = (category: Category) => {
     if (confirm(`Are you sure you want to delete "${category.name}"?`)) {
-      deleteCategoryMutation.mutate(category.id.toString())
+      deleteCategoryMutation.mutate({ id: category.id.toString(), name: category.name })
     }
   }
 
@@ -314,7 +312,7 @@ export function AdminMenuManagement() {
                           <div className="flex-shrink-0">
                             {product.image_url ? (
                               <img 
-                                src={product.image_url} 
+                                src={getMediaUrl(product.image_url)}
                                 alt={product.name}
                                 className="h-12 w-12 rounded-lg object-cover"
                               />
