@@ -48,6 +48,29 @@ CREATE TABLE products (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Ordered product/service photo galleries. image_url remains the primary-photo
+-- compatibility field for older clients and existing installations.
+CREATE TABLE product_images (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    image_url VARCHAR(500) NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0 AND sort_order < 10),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (product_id, sort_order)
+);
+
+CREATE INDEX idx_product_images_product_id ON product_images(product_id);
+
+-- Singleton company identity used by the first-run setup wizard.
+CREATE TABLE shop_profile (
+    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    company_name VARCHAR(150) NOT NULL DEFAULT 'Computer Shop POS',
+    logo_url VARCHAR(500),
+    setup_completed BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Tables/Dining Areas
 CREATE TABLE dining_tables (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

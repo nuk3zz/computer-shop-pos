@@ -56,6 +56,15 @@ export interface Category {
   updated_at: string;
 }
 
+export interface ShopProfile {
+  id: number;
+  company_name: string;
+  logo_url?: string;
+  setup_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Product Types
 export interface Product {
   id: string;
@@ -66,6 +75,7 @@ export interface Product {
   cost_price: number;
   item_type: 'product' | 'service';
   image_url?: string;
+  images: string[];
   barcode?: string;
   sku?: string;
   is_available: boolean;

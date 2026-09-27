@@ -24,6 +24,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	customerHandler := handlers.NewCustomerHandler(db)
 	paymentHandler := handlers.NewPaymentHandler(db)
 	imageUploadHandler := handlers.NewImageUploadHandler(uploadDir)
+	shopProfileHandler := handlers.NewShopProfileHandler(db)
 
 	// Public routes (no authentication required)
 	public := router.Group("/")
@@ -47,6 +48,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		protected.GET("/categories/:id/products", productHandler.GetProductsByCategory)
 		protected.GET("/customers", customerHandler.GetCustomers)
 		protected.GET("/customers/:id", customerHandler.GetCustomer)
+		protected.GET("/shop-profile", shopProfileHandler.Get)
 
 		// Sales and repair-ticket routes
 		protected.GET("/orders", orderHandler.GetOrders)
@@ -80,6 +82,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.PUT("/products/:id", updateProduct(db))
 		admin.DELETE("/products/:id", deleteProduct(db))
 		admin.POST("/uploads/images", imageUploadHandler.UploadProductImage)
+		admin.PUT("/shop-profile", shopProfileHandler.Update)
 		admin.POST("/customers", customerHandler.CreateCustomer)
 		admin.PUT("/customers/:id", customerHandler.UpdateCustomer)
 
@@ -713,19 +716,20 @@ func deleteCategory(db *sql.DB) gin.HandlerFunc {
 func createProduct(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			CategoryID      *string `json:"category_id"`
-			Name            string  `json:"name" binding:"required"`
-			Description     *string `json:"description"`
-			Price           float64 `json:"price" binding:"required"`
-			CostPrice       float64 `json:"cost_price"`
-			ItemType        string  `json:"item_type" binding:"required"`
-			ImageURL        *string `json:"image_url"`
-			Barcode         *string `json:"barcode"`
-			SKU             *string `json:"sku"`
-			IsAvailable     *bool   `json:"is_available"`
-			StockQuantity   int     `json:"stock_quantity"`
-			PreparationTime int     `json:"preparation_time"`
-			SortOrder       int     `json:"sort_order"`
+			CategoryID      *string  `json:"category_id"`
+			Name            string   `json:"name" binding:"required"`
+			Description     *string  `json:"description"`
+			Price           float64  `json:"price" binding:"required"`
+			CostPrice       float64  `json:"cost_price"`
+			ItemType        string   `json:"item_type" binding:"required"`
+			ImageURL        *string  `json:"image_url"`
+			ImageURLs       []string `json:"image_urls"`
+			Barcode         *string  `json:"barcode"`
+			SKU             *string  `json:"sku"`
+			IsAvailable     *bool    `json:"is_available"`
+			StockQuantity   int      `json:"stock_quantity"`
+			PreparationTime int      `json:"preparation_time"`
+			SortOrder       int      `json:"sort_order"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -746,6 +750,17 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			c.JSON(400, gin.H{"success": false, "message": "Stock quantity cannot be negative"})
 			return
 		}
+		if len(req.ImageURLs) == 0 && req.ImageURL != nil && strings.TrimSpace(*req.ImageURL) != "" {
+			req.ImageURLs = []string{*req.ImageURL}
+		}
+		if len(req.ImageURLs) > 10 {
+			c.JSON(400, gin.H{"success": false, "message": "A catalog item can have at most 10 images"})
+			return
+		}
+		var primaryImage *string
+		if len(req.ImageURLs) > 0 {
+			primaryImage = &req.ImageURLs[0]
+		}
 
 		tx, err := db.Begin()
 		if err != nil {
@@ -758,7 +773,7 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			INSERT INTO products (category_id, name, description, price, cost_price, item_type, image_url, barcode, sku, is_available, preparation_time, sort_order)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, true), $11, $12)
 			RETURNING id
-		`, req.CategoryID, req.Name, req.Description, req.Price, req.CostPrice, req.ItemType, req.ImageURL, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
+		`, req.CategoryID, req.Name, req.Description, req.Price, req.CostPrice, req.ItemType, primaryImage, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
 
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -777,6 +792,10 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			VALUES ($1, $2, 0, $3, $4) ON CONFLICT (product_id) DO UPDATE SET unit_cost = EXCLUDED.unit_cost`,
 			productID, stock, stock, req.CostPrice); err != nil {
 			c.JSON(500, gin.H{"success": false, "message": "Failed to create product inventory", "error": err.Error()})
+			return
+		}
+		if err := replaceProductImages(tx, productID, req.ImageURLs); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to save product images", "error": err.Error()})
 			return
 		}
 
@@ -799,19 +818,20 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 		productID := c.Param("id")
 
 		var req struct {
-			CategoryID      *string  `json:"category_id"`
-			Name            *string  `json:"name"`
-			Description     *string  `json:"description"`
-			Price           *float64 `json:"price"`
-			CostPrice       *float64 `json:"cost_price"`
-			ItemType        *string  `json:"item_type"`
-			ImageURL        *string  `json:"image_url"`
-			Barcode         *string  `json:"barcode"`
-			SKU             *string  `json:"sku"`
-			IsAvailable     *bool    `json:"is_available"`
-			StockQuantity   *int     `json:"stock_quantity"`
-			PreparationTime *int     `json:"preparation_time"`
-			SortOrder       *int     `json:"sort_order"`
+			CategoryID      *string   `json:"category_id"`
+			Name            *string   `json:"name"`
+			Description     *string   `json:"description"`
+			Price           *float64  `json:"price"`
+			CostPrice       *float64  `json:"cost_price"`
+			ItemType        *string   `json:"item_type"`
+			ImageURL        *string   `json:"image_url"`
+			ImageURLs       *[]string `json:"image_urls"`
+			Barcode         *string   `json:"barcode"`
+			SKU             *string   `json:"sku"`
+			IsAvailable     *bool     `json:"is_available"`
+			StockQuantity   *int      `json:"stock_quantity"`
+			PreparationTime *int      `json:"preparation_time"`
+			SortOrder       *int      `json:"sort_order"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -824,6 +844,10 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 		}
 		if req.StockQuantity != nil && *req.StockQuantity < 0 {
 			c.JSON(400, gin.H{"success": false, "message": "Stock quantity cannot be negative"})
+			return
+		}
+		if req.ImageURLs != nil && len(*req.ImageURLs) > 10 {
+			c.JSON(400, gin.H{"success": false, "message": "A catalog item can have at most 10 images"})
 			return
 		}
 
@@ -866,7 +890,15 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			args = append(args, *req.ItemType)
 			argCount++
 		}
-		if req.ImageURL != nil {
+		if req.ImageURLs != nil {
+			var primaryImage *string
+			if len(*req.ImageURLs) > 0 {
+				primaryImage = &(*req.ImageURLs)[0]
+			}
+			updates = append(updates, fmt.Sprintf("image_url = $%d", argCount))
+			args = append(args, primaryImage)
+			argCount++
+		} else if req.ImageURL != nil {
 			updates = append(updates, fmt.Sprintf("image_url = $%d", argCount))
 			args = append(args, req.ImageURL)
 			argCount++
@@ -967,6 +999,12 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			c.JSON(500, gin.H{"success": false, "message": "Failed to update product inventory", "error": err.Error()})
 			return
 		}
+		if req.ImageURLs != nil {
+			if err := replaceProductImages(tx, productID, *req.ImageURLs); err != nil {
+				c.JSON(500, gin.H{"success": false, "message": "Failed to update product images", "error": err.Error()})
+				return
+			}
+		}
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(500, gin.H{"success": false, "message": "Failed to save product", "error": err.Error()})
@@ -978,6 +1016,25 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			"message": "Product updated successfully",
 		})
 	}
+}
+
+func replaceProductImages(tx *sql.Tx, productID string, imageURLs []string) error {
+	if _, err := tx.Exec(`DELETE FROM product_images WHERE product_id = $1`, productID); err != nil {
+		return err
+	}
+	for index, imageURL := range imageURLs {
+		imageURL = strings.TrimSpace(imageURL)
+		if imageURL == "" {
+			continue
+		}
+		if _, err := tx.Exec(`
+			INSERT INTO product_images (product_id, image_url, sort_order)
+			VALUES ($1, $2, $3)
+		`, productID, imageURL, index); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Admin handler - Delete product

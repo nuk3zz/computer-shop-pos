@@ -1,8 +1,10 @@
 import { createFileRoute, Navigate, Outlet } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/api/client'
 import type { User } from '@/types'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
+import { loadShopSettings, saveShopSettings } from '@/lib/shop-settings'
 
 export const Route = createFileRoute('/admin')({
   component: AdminLayout,
@@ -29,8 +31,23 @@ function AdminLayout() {
     setIsLoading(false)
   }, [])
 
+  const { data: shopProfile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['shop-profile'],
+    queryFn: async () => {
+      const response = await apiClient.getShopProfile()
+      if (!response.data) throw new Error('Shop profile is missing')
+      return response.data
+    },
+    enabled: Boolean(user && apiClient.isAuthenticated()),
+  })
+
+  useEffect(() => {
+    if (!shopProfile?.setup_completed) return
+    saveShopSettings({ ...loadShopSettings(), shop_name: shopProfile.company_name })
+  }, [shopProfile])
+
   // Show loading while checking auth
-  if (isLoading) {
+  if (isLoading || (user && isProfileLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -59,9 +76,13 @@ function AdminLayout() {
     )
   }
 
+  if (shopProfile && !shopProfile.setup_completed) {
+    return <Navigate to="/setup" />
+  }
+
   return (
     <div className="min-h-screen bg-background flex">
-      <AdminSidebar user={user} />
+      <AdminSidebar user={user} shopProfile={shopProfile} />
       <main className="flex-1 overflow-auto">
         <Outlet />
       </main>

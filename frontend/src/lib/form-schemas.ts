@@ -46,6 +46,7 @@ export const createProductSchema = z.object({
   item_type: z.enum(['product', 'service']).default('product'),
   category_id: requiredStringSchema,
   image_url: imageUrlSchema.optional(),
+  image_urls: z.array(imageUrlSchema).max(10, 'Use no more than 10 images').optional(),
   status: productStatusSchema.default('active'),
   stock_quantity: z.number().int('Stock must be a whole number').min(0, 'Stock cannot be negative').default(0),
   preparation_time: z.number().min(0).max(365).default(0), // whole days in the form; converted before API submission

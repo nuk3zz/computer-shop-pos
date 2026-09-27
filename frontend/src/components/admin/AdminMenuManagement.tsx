@@ -27,6 +27,7 @@ import { InlineLoading } from '@/components/ui/loading-spinner'
 import type { Product, Category } from '@/types'
 import { getMediaUrl } from '@/lib/media'
 import { formatMoney } from '@/lib/shop-settings'
+import { ProductImageGallery } from '@/components/catalog/ProductImageGallery'
 
 type DisplayMode = 'table' | 'cards'
 type ActiveTab = 'products' | 'categories'
@@ -43,6 +44,7 @@ export function AdminMenuManagement() {
   const [showCreateProductForm, setShowCreateProductForm] = useState(false)
   const [showCreateCategoryForm, setShowCreateCategoryForm] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null)
 
   const queryClient = useQueryClient()
 
@@ -190,6 +192,7 @@ export function AdminMenuManagement() {
   }
 
   return (
+    <>
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -275,6 +278,7 @@ export function AdminMenuManagement() {
                 categories={categories}
                 onEdit={setEditingProduct}
                 onDelete={handleDeleteProduct}
+                onViewImages={setGalleryProduct}
                 isLoading={isLoadingProducts}
               />
             ) : isLoadingProducts ? (
@@ -307,11 +311,9 @@ export function AdminMenuManagement() {
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0">
                             {product.image_url ? (
-                              <img 
-                                src={getMediaUrl(product.image_url)}
-                                alt={product.name}
-                                className="h-14 w-14 rounded-md object-cover"
-                              />
+                              <button type="button" onClick={() => setGalleryProduct(product)} aria-label={`View photos for ${product.name}`}>
+                                <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-14 w-14 rounded-md object-cover" />
+                              </button>
                             ) : (
                               <div className="flex h-14 w-14 items-center justify-center rounded-md bg-slate-100">
                                 <Package className="h-6 w-6 text-slate-400" />
@@ -491,5 +493,7 @@ export function AdminMenuManagement() {
         </TabsContent>
       </Tabs>
     </div>
+    <ProductImageGallery product={galleryProduct} onClose={() => setGalleryProduct(null)} />
+    </>
   )
 }

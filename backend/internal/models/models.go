@@ -42,6 +42,7 @@ type Product struct {
 	CostPrice       float64    `json:"cost_price"`
 	ItemType        string     `json:"item_type"` // product, service
 	ImageURL        *string    `json:"image_url"`
+	Images          []string   `json:"images"`
 	Barcode         *string    `json:"barcode"`
 	SKU             *string    `json:"sku"`
 	IsAvailable     bool       `json:"is_available"`
@@ -51,6 +52,16 @@ type Product struct {
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	Category        *Category  `json:"category,omitempty"`
+}
+
+// ShopProfile is the persistent identity configured during first-run setup.
+type ShopProfile struct {
+	ID             int16     `json:"id"`
+	CompanyName    string    `json:"company_name"`
+	LogoURL        *string   `json:"logo_url"`
+	SetupCompleted bool      `json:"setup_completed"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // Customer represents a reusable client record and its sales summary.

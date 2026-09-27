@@ -7,3 +7,4 @@
 - [Mac Mini self-hosting](self-hosting.md) - runtime, address, persistence, startup, and backups.
 - [Computer-shop conversion](computer-shop-conversion.md) - restaurant removal, sales workspace, repair tickets, and starter catalog.
 - [Clients and fresh-start behavior](clients-and-fresh-start.md) - blank data policy, reusable clients, history, service days, and compact sales cards.
+- [Product galleries and first-run setup](product-gallery-and-setup.md) - ten-photo galleries, full-screen viewing, and persistent company identity.

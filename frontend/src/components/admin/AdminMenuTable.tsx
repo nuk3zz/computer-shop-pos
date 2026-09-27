@@ -38,6 +38,7 @@ interface AdminMenuTableProps {
   categories: Category[]
   onEdit: (product: Product) => void
   onDelete: (product: Product) => void
+  onViewImages?: (product: Product) => void
   isLoading?: boolean
 }
 export function AdminMenuTable({
@@ -45,6 +46,7 @@ export function AdminMenuTable({
   categories,
   onEdit,
   onDelete,
+  onViewImages,
   isLoading = false
 }: AdminMenuTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -90,11 +92,9 @@ export function AdminMenuTable({
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
               {product.image_url ? (
-                <img 
-                  src={getMediaUrl(product.image_url)}
-                  alt={product.name}
-                  className="h-12 w-12 rounded-lg object-cover"
-                />
+                <button type="button" onClick={() => onViewImages?.(product)} aria-label={`View photos for ${product.name}`}>
+                  <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-12 w-12 rounded-lg object-cover" />
+                </button>
               ) : (
                 <div className="h-12 w-12 rounded-lg bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center">
                   <Package className="h-6 w-6 text-white" />

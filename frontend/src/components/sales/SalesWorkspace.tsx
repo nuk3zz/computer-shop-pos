@@ -9,6 +9,7 @@ import apiClient from '@/api/client'
 import { getMediaUrl } from '@/lib/media'
 import { formatMoney } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
+import { ProductImageGallery } from '@/components/catalog/ProductImageGallery'
 import type { Customer, Product } from '@/types'
 import { Check, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, X, ZoomIn } from 'lucide-react'
 
@@ -28,6 +29,7 @@ export function SalesWorkspace() {
   const [deviceNotes, setDeviceNotes] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   const [tileSize, setTileSize] = useState(150)
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null)
   const queryClient = useQueryClient()
 
   const { data: categories = [] } = useQuery({
@@ -188,7 +190,7 @@ export function SalesWorkspace() {
                 const quantity = cart.find((line) => line.product.id === product.id)?.quantity || 0
                 return (
                   <Card key={product.id} className="flex h-full flex-col overflow-hidden shadow-sm transition-colors hover:border-slate-400">
-                    <div className="aspect-[16/10] overflow-hidden bg-slate-100">
+                    <button type="button" onClick={() => product.image_url && setGalleryProduct(product)} className="aspect-[16/10] w-full overflow-hidden bg-slate-100 text-left" aria-label={product.image_url ? `View photos for ${product.name}` : undefined}>
                       {product.image_url ? (
                         <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-full w-full object-cover" />
                       ) : (
@@ -196,7 +198,7 @@ export function SalesWorkspace() {
                           <Package className="h-9 w-9 text-slate-300" />
                         </div>
                       )}
-                    </div>
+                    </button>
                     <CardContent className="flex flex-1 flex-col p-2.5">
                       <h2 className="line-clamp-2 text-sm font-semibold leading-4">{product.name}</h2>
                       <div className="mt-1 text-sm font-bold">{formatMoney(product.price)}</div>
@@ -342,6 +344,7 @@ export function SalesWorkspace() {
           </div>
         </aside>
       </div>
+      <ProductImageGallery product={galleryProduct} onClose={() => setGalleryProduct(null)} />
     </div>
   )
 }

@@ -20,6 +20,7 @@ import type {
   ProductFilters,
   Customer,
   CustomerInput,
+  ShopProfile,
 } from '@/types';
 
 class APIClient {
@@ -293,6 +294,14 @@ class APIClient {
       data: formData,
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+  }
+
+  async getShopProfile(): Promise<APIResponse<ShopProfile>> {
+    return this.request({ method: 'GET', url: '/shop-profile' });
+  }
+
+  async updateShopProfile(profile: { company_name: string; logo_url?: string }): Promise<APIResponse<ShopProfile>> {
+    return this.request({ method: 'PUT', url: '/admin/shop-profile', data: profile });
   }
 
   // Admin-specific category management  

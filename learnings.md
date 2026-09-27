@@ -146,3 +146,21 @@
 
 - TypeScript checking and the production Vite build pass.
 - Browser inspection against the real H81 item confirmed a substantially shorter sales tile and a compact catalog card with no large internal blank area.
+
+## 2026-09-28 - Product galleries and persistent first-run setup
+
+### Worked
+
+- Added ordered product/service galleries with up to ten photos while retaining `products.image_url` as the backward-compatible cover image.
+- Existing product thumbnails migrate into gallery position zero without resetting catalog, inventory, customer, or transaction data.
+- Catalog thumbnails now open a full-screen viewer with previous/next controls, keyboard arrows, Escape close, thumbnail selection, and touch-swipe navigation.
+- Added a one-time authenticated setup wizard for company name and optional logo; the singleton shop profile is stored in PostgreSQL and logo files use the persistent uploads volume.
+- The configured company name and logo render in the admin sidebar after setup.
+
+### Verification
+
+- Go tests, TypeScript checking, and the production Vite and Docker builds pass.
+- A clean PostgreSQL initialization produced one administrator, zero products/images, and one incomplete shop profile.
+- A checksum-verified recovery backup was created at `backups/self-host/*20260928-023054*` before the live migration.
+- Runtime API checks proved three-image creation, ordered two-image replacement, legacy cover synchronization, ten-image limit enforcement, persistent shop-profile update/reload, and cleanup of the temporary catalog item.
+- Browser inspection confirmed the existing H81 thumbnail opens full screen and the incomplete live profile redirects to the setup wizard.

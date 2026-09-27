@@ -14,10 +14,12 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
-import type { User as UserType } from '@/types'
+import type { ShopProfile, User as UserType } from '@/types'
+import { getMediaUrl } from '@/lib/media'
 
 interface AdminSidebarProps {
   user: UserType
+  shopProfile?: ShopProfile
 }
 
 const adminSections = [
@@ -79,7 +81,7 @@ const adminSections = [
   },
 ]
 
-export function AdminSidebar({ user }: AdminSidebarProps) {
+export function AdminSidebar({ user, shopProfile }: AdminSidebarProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
@@ -128,11 +130,13 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
           <div className="flex items-center justify-between">
             {!sidebarCollapsed && (
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
-                </div>
+                {shopProfile?.logo_url ? (
+                  <img src={getMediaUrl(shopProfile.logo_url)} alt="" className="h-8 w-8 rounded-lg border object-cover" />
+                ) : (
+                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><LayoutDashboard className="w-5 h-5 text-primary-foreground" /></div>
+                )}
                 <div>
-                  <h1 className="font-bold text-foreground">Computer Shop POS</h1>
+                  <h1 className="max-w-40 truncate font-bold text-foreground">{shopProfile?.company_name || 'Computer Shop POS'}</h1>
                   <p className="text-xs text-muted-foreground">Sales and repair management</p>
                 </div>
               </div>

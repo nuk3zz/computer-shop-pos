@@ -33,8 +33,10 @@ interface ProductFormProps {
 export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: ProductFormProps) {
   const queryClient = useQueryClient()
   const isEditing = mode === 'edit' && product
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState('')
+  const [existingImages, setExistingImages] = useState<string[]>(
+    product?.images?.length ? product.images : product?.image_url ? [product.image_url] : [],
+  )
+  const [newImages, setNewImages] = useState<Array<{ file: File; preview: string }>>([])
   const [imageError, setImageError] = useState('')
 
   // Fetch categories for dropdown
@@ -61,6 +63,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         item_type: product.item_type || (product.preparation_time > 0 ? ('service' as const) : ('product' as const)),
         category_id: product.category_id,
         image_url: product.image_url || '',
+        image_urls: product.images || (product.image_url ? [product.image_url] : []),
         status: product.is_available ? ('active' as const) : ('inactive' as const),
         stock_quantity: product.stock_quantity || 0,
         preparation_time: product.item_type === 'service' ? Math.max(1, Math.ceil(product.preparation_time / 1440)) : 0
@@ -73,6 +76,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         item_type: 'product' as const,
         category_id: categories[0]?.id || '',
         image_url: '',
+        image_urls: [],
         status: 'active' as const,
         stock_quantity: 0,
         preparation_time: 0
@@ -101,31 +105,33 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
     }
   }, [form, itemType])
 
-  useEffect(() => {
-    return () => {
-      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-    }
-  }, [imagePreview])
-
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
 
     const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!acceptedTypes.includes(file.type)) {
+    if (files.some((file) => !acceptedTypes.includes(file.type))) {
       setImageError('Use a JPG, PNG, WebP, or GIF image.')
       event.target.value = ''
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError('Image must be 5 MB or smaller.')
+    if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+      setImageError('Each image must be 5 MB or smaller.')
+      event.target.value = ''
+      return
+    }
+    if (existingImages.length + newImages.length + files.length > 10) {
+      setImageError('A listing can have up to 10 photos.')
       event.target.value = ''
       return
     }
 
     setImageError('')
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    setNewImages((current) => [
+      ...current,
+      ...files.map((file) => ({ file, preview: URL.createObjectURL(file) })),
+    ])
+    event.target.value = ''
   }
 
   const prepareProductData = async (data: Partial<CreateProductData>) => {
@@ -139,10 +145,13 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
       is_available: status ? status === 'active' : undefined
     }
 
-    if (imageFile) {
-      const uploadResponse = await apiClient.uploadProductImage(imageFile)
-      preparedData.image_url = uploadResponse.data?.url || ''
-    }
+    const uploadedImages = await Promise.all(newImages.map(async ({ file }) => {
+      const uploadResponse = await apiClient.uploadProductImage(file)
+      return uploadResponse.data?.url || ''
+    }))
+    const imageURLs = [...existingImages, ...uploadedImages.filter(Boolean)].slice(0, 10)
+    preparedData.image_urls = imageURLs
+    preparedData.image_url = imageURLs[0] || ''
 
     return preparedData
   }
@@ -239,36 +248,41 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
               />
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Product or service image</label>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                    {imagePreview || form.watch('image_url') ? (
-                      <img src={imagePreview || getMediaUrl(form.watch('image_url'))} alt="Item preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImagePlus className="h-9 w-9 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <Input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} disabled={isLoading} />
-                    <p className="text-xs text-muted-foreground">Upload a clear square thumbnail. JPG, PNG, WebP, or GIF; maximum 5 MB.</p>
-                    {(imagePreview || form.watch('image_url')) && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setImageFile(null)
-                          setImagePreview('')
-                          form.setValue('image_url', '')
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Remove image
-                      </Button>
-                    )}
-                    {imageError && <p className="text-sm text-destructive">{imageError}</p>}
-                  </div>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium">Listing photos</label>
+                  <span className="text-xs text-muted-foreground">{existingImages.length + newImages.length}/10</span>
                 </div>
+                {(existingImages.length > 0 || newImages.length > 0) && (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    {existingImages.map((imageURL, index) => (
+                      <div key={`${imageURL}-${index}`} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
+                        <img src={getMediaUrl(imageURL)} alt={`Listing photo ${index + 1}`} className="h-full w-full object-cover" />
+                        {index === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">Cover</span>}
+                        <button type="button" aria-label={`Remove photo ${index + 1}`} onClick={() => setExistingImages((images) => images.filter((_, imageIndex) => imageIndex !== index))} className="absolute right-1 top-1 rounded bg-white/90 p-1 text-slate-700 shadow hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {newImages.map(({ preview }, index) => (
+                      <div key={preview} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
+                        <img src={preview} alt={`New listing photo ${index + 1}`} className="h-full w-full object-cover" />
+                        {existingImages.length === 0 && index === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">Cover</span>}
+                        <button type="button" aria-label={`Remove new photo ${index + 1}`} onClick={() => setNewImages((images) => {
+                          URL.revokeObjectURL(images[index].preview)
+                          return images.filter((_, imageIndex) => imageIndex !== index)
+                        })} className="absolute right-1 top-1 rounded bg-white/90 p-1 text-slate-700 shadow hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted"><ImagePlus className="h-5 w-5 text-muted-foreground" /></div>
+                  <Input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} disabled={isLoading || existingImages.length + newImages.length >= 10} />
+                </div>
+                <p className="text-xs text-muted-foreground">Choose up to 10 photos. The first is the catalog cover; maximum 5 MB each.</p>
+                {imageError && <p className="text-sm text-destructive">{imageError}</p>}
               </div>
             </div>
 
