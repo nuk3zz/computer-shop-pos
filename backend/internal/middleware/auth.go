@@ -17,6 +17,13 @@ import (
 // development only; production Compose always sets JWT_SECRET.
 var jwtSecret = []byte(getEnv("JWT_SECRET", "development-only-secret-change-me"))
 
+// SetJWTSecret supplies the installation-specific secret before routes start.
+func SetJWTSecret(secret string) {
+	if strings.TrimSpace(secret) != "" {
+		jwtSecret = []byte(secret)
+	}
+}
+
 // Claims represents the JWT claims
 type Claims struct {
 	UserID   uuid.UUID `json:"user_id"`

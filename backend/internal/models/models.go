@@ -60,6 +60,9 @@ type ShopProfile struct {
 	CompanyName    string    `json:"company_name"`
 	LogoURL        *string   `json:"logo_url"`
 	SetupCompleted bool      `json:"setup_completed"`
+	NetworkMode    string    `json:"network_mode"`
+	AutoBackup     bool      `json:"auto_backup"`
+	BackupTime     string    `json:"backup_time"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

@@ -190,7 +190,7 @@ export function SalesWorkspace() {
                 const quantity = cart.find((line) => line.product.id === product.id)?.quantity || 0
                 return (
                   <Card key={product.id} className="flex h-full flex-col overflow-hidden shadow-sm transition-colors hover:border-slate-400">
-                    <button type="button" onClick={() => product.image_url && setGalleryProduct(product)} className="aspect-[16/10] w-full overflow-hidden bg-slate-100 text-left" aria-label={product.image_url ? `View photos for ${product.name}` : undefined}>
+                    <button type="button" onClick={() => setGalleryProduct(product)} className="aspect-[16/10] w-full overflow-hidden bg-slate-100 text-left" aria-label={`View details for ${product.name}`}>
                       {product.image_url ? (
                         <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-full w-full object-cover" />
                       ) : (

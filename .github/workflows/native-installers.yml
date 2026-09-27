@@ -1,0 +1,102 @@
+name: Native installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version label for test artifacts
+        required: false
+        default: dev
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          fi
+      - name: Build native server and Debian installer
+        shell: bash
+        run: |
+          chmod +x scripts/build-native.sh scripts/build-linux-deb.sh installer/linux/postinst installer/linux/prerm installer/linux/postrm installer/linux/computer-shop-pos-status
+          scripts/build-native.sh linux amd64 "$VERSION" "$PWD/dist-native"
+          scripts/build-linux-deb.sh "$VERSION" "$PWD/dist-native/computer-shop-pos" "$PWD/dist-native"
+          "$PWD/dist-native/computer-shop-pos" --version
+          dpkg-deb --info "$PWD/dist-native/"*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-installer
+          path: dist-native/*.deb
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          fi
+      - name: Build Windows server
+        shell: bash
+        run: scripts/build-native.sh windows amd64 "$VERSION" "$PWD/dist-native"
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          New-Item -ItemType Directory -Force installer/windows/build | Out-Null
+          Copy-Item "dist-native/computer-shop-pos.exe" installer/windows/build/computer-shop-pos.exe
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:VERSION" installer/windows/computer-shop-pos.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: installer/windows/output/*.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "Computer Shop POS $GITHUB_REF_NAME" --generate-notes

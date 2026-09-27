@@ -1,0 +1,7 @@
+BEGIN;
+
+ALTER TABLE shop_profile ADD COLUMN IF NOT EXISTS network_mode VARCHAR(10) NOT NULL DEFAULT 'local' CHECK (network_mode IN ('local', 'lan'));
+ALTER TABLE shop_profile ADD COLUMN IF NOT EXISTS auto_backup BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE shop_profile ADD COLUMN IF NOT EXISTS backup_time VARCHAR(5) NOT NULL DEFAULT '02:30';
+
+COMMIT;

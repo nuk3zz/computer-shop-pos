@@ -164,3 +164,28 @@
 - A checksum-verified recovery backup was created at `backups/self-host/*20260928-023054*` before the live migration.
 - Runtime API checks proved three-image creation, ordered two-image replacement, legacy cover synchronization, ten-image limit enforcement, persistent shop-profile update/reload, and cleanup of the temporary catalog item.
 - Browser inspection confirmed the existing H81 thumbnail opens full screen and the incomplete live profile redirects to the setup wizard.
+
+## 2026-09-28 - Native installers, owner setup, maintenance, and item details
+
+### Worked
+
+- Added a pure-Go SQLite standalone mode with the compiled React interface embedded into one server binary; the existing Docker/PostgreSQL edition remains supported.
+- Fresh standalone installations create a disabled bootstrap administrator and require a two-step wizard for company identity, local/LAN choice, owner name, username, and password before login is possible.
+- Headless Linux setup permits the one-time owner wizard from a private-LAN device; after setup the selected local-only or LAN policy is enforced using the direct socket address rather than spoofable proxy headers.
+- Added verified `.cspbackup` archives containing a consistent SQLite snapshot, uploads, manifest, and checksums; manual backup/download/upload, staged restore, pre-restore safety backup, daily scheduling, and 30-archive automatic retention are exposed in Settings.
+- Added Windows x64 Inno Setup and Linux x64 Debian/systemd packaging. Application upgrades replace program files while the database, uploads, logs, and backups remain under `Documents/Computer Shop POS`.
+- Added an on-demand GitHub Release update check and a release workflow that builds both installers for version tags.
+- Replaced the photo-only overlay with a responsive item-detail viewer that retains ten-photo navigation and shows the complete description/compatibility text, category, price, SKU, stock, or service duration. Items without photos now open a compact detail view.
+- Applied the additive network/backup preference migration to the running Mac Docker database and redeployed the current frontend/backend after a verified recovery backup.
+
+### Verification
+
+- Go formatting and tests, TypeScript checking, the Vite production build, Actionlint, ShellCheck, and Git whitespace checks pass.
+- Cross-compilation produced a static Linux x64 binary and a Windows x64 GUI executable; a Debian package was built and its control metadata inspected.
+- An isolated native runtime proved fresh database initialization, owner setup/login, product description persistence, portable weekly/monthly reports, manual backup verification, restore staging, service restart, and rollback of data created after the selected backup.
+- Browser inspection confirmed the standalone Backup & Restore controls and the compact product detail viewer with multiline compatibility/features content.
+- The live PostgreSQL installation retained its catalog and profile data, and authenticated catalog, report, and system-information smoke tests passed after deployment.
+
+### Recovery point
+
+- The pre-migration live Docker database and uploads are available at `backups/self-host/*20260928-032026*`.

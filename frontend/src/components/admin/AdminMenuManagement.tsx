@@ -310,15 +310,15 @@ export function AdminMenuManagement() {
                     <CardContent className="p-3">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0">
+                          <button type="button" onClick={() => setGalleryProduct(product)} aria-label={`View details for ${product.name}`}>
                             {product.image_url ? (
-                              <button type="button" onClick={() => setGalleryProduct(product)} aria-label={`View photos for ${product.name}`}>
-                                <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-14 w-14 rounded-md object-cover" />
-                              </button>
+                              <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-14 w-14 rounded-md object-cover" />
                             ) : (
                               <div className="flex h-14 w-14 items-center justify-center rounded-md bg-slate-100">
                                 <Package className="h-6 w-6 text-slate-400" />
                               </div>
                             )}
+                          </button>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">

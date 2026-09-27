@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Bell, Database, DollarSign, Globe, MessageCircle, Printer, RotateCcw, Save } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Bell, DollarSign, Globe, MessageCircle, Printer, RotateCcw, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { defaultShopSettings, loadShopSettings, saveShopSettings } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
+import { SystemMaintenance } from '@/components/admin/SystemMaintenance'
 
 export function AdminSettings() {
   const [settings, setSettings] = useState(loadShopSettings)
@@ -78,12 +78,7 @@ export function AdminSettings() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-5 w-5" />System Status</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {['Database connected', 'API online', 'Daily backups enabled', 'Local self-host'].map((item) => <Badge key={item} variant="outline" className="justify-center py-2">{item}</Badge>)}
-        </CardContent>
-      </Card>
+      <SystemMaintenance />
     </div>
   )
 }

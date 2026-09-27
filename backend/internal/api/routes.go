@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"pos-backend/internal/database"
 	"pos-backend/internal/handlers"
 	"pos-backend/internal/middleware"
 	"pos-backend/internal/models"
@@ -16,7 +17,7 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.HandlerFunc, uploadDir string) {
+func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.HandlerFunc, uploadDir, dataDir, appVersion string) {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(db)
 	orderHandler := handlers.NewOrderHandler(db)
@@ -25,6 +26,8 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	paymentHandler := handlers.NewPaymentHandler(db)
 	imageUploadHandler := handlers.NewImageUploadHandler(uploadDir)
 	shopProfileHandler := handlers.NewShopProfileHandler(db)
+	initialSetupHandler := handlers.NewInitialSetupHandler(db, imageUploadHandler)
+	maintenanceHandler := handlers.NewMaintenanceHandler(db, dataDir, appVersion)
 
 	// Public routes (no authentication required)
 	public := router.Group("/")
@@ -32,6 +35,9 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		// Authentication routes
 		public.POST("/auth/login", authHandler.Login)
 		public.POST("/auth/logout", authHandler.Logout)
+		public.GET("/setup/status", initialSetupHandler.Status)
+		public.POST("/setup/upload", initialSetupHandler.UploadLogo)
+		public.POST("/setup/complete", initialSetupHandler.Complete)
 	}
 
 	// Protected routes (authentication required)
@@ -83,6 +89,15 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.DELETE("/products/:id", deleteProduct(db))
 		admin.POST("/uploads/images", imageUploadHandler.UploadProductImage)
 		admin.PUT("/shop-profile", shopProfileHandler.Update)
+		admin.POST("/setup/complete", initialSetupHandler.CompleteAuthenticated)
+		admin.GET("/system/info", maintenanceHandler.Info)
+		admin.PUT("/system/preferences", maintenanceHandler.UpdatePreferences)
+		admin.GET("/system/backups", maintenanceHandler.ListBackups)
+		admin.POST("/system/backups", maintenanceHandler.CreateBackup)
+		admin.GET("/system/backups/:name/download", maintenanceHandler.DownloadBackup)
+		admin.POST("/system/backups/upload", maintenanceHandler.UploadBackup)
+		admin.POST("/system/restore", maintenanceHandler.StageRestore)
+		admin.GET("/system/updates", maintenanceHandler.CheckUpdates)
 		admin.POST("/customers", customerHandler.CreateCustomer)
 		admin.PUT("/customers/:id", customerHandler.UpdateCustomer)
 
@@ -156,9 +171,28 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 		period := c.DefaultQuery("period", "today") // today, week, month
 
 		var query string
-		switch period {
-		case "week":
-			query = `
+		if database.IsSQLite(db) {
+			groupExpression := "date(o.created_at)"
+			whereExpression := "date(o.created_at) = date('now', 'localtime')"
+			switch period {
+			case "week":
+				whereExpression = "o.created_at >= datetime('now', '-7 days')"
+			case "month":
+				whereExpression = "o.created_at >= datetime('now', '-30 days')"
+			default:
+				groupExpression = "strftime('%Y-%m-%dT%H:00:00', o.created_at, 'localtime')"
+			}
+			query = fmt.Sprintf(`
+				SELECT %s as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
+				FROM orders o
+				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
+				WHERE %s AND o.status = 'completed'
+				GROUP BY %s ORDER BY date DESC`, groupExpression, whereExpression, groupExpression)
+		} else {
+			switch period {
+			case "week":
+				query = `
 				SELECT DATE(o.created_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
 				FROM orders o
@@ -167,8 +201,8 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE(o.created_at)
 				ORDER BY date DESC
 			`
-		case "month":
-			query = `
+			case "month":
+				query = `
 				SELECT DATE(o.created_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
 				FROM orders o
@@ -177,8 +211,8 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE(o.created_at)
 				ORDER BY date DESC
 			`
-		default: // today
-			query = `
+			default: // today
+				query = `
 				SELECT DATE_TRUNC('hour', o.created_at) as hour, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
 				FROM orders o
@@ -187,6 +221,7 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE_TRUNC('hour', o.created_at)
 				ORDER BY hour DESC
 			`
+			}
 		}
 
 		rows, err := db.Query(query)
@@ -407,9 +442,29 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 		period := c.DefaultQuery("period", "today") // today, week, month, year
 
 		var query string
-		switch period {
-		case "week":
-			query = `
+		if database.IsSQLite(db) {
+			groupExpression := "strftime('%Y-%m-%dT%H:00:00', created_at, 'localtime')"
+			whereExpression := "date(created_at) = date('now', 'localtime')"
+			switch period {
+			case "week":
+				groupExpression = "date(created_at)"
+				whereExpression = "created_at >= datetime('now', '-7 days')"
+			case "month":
+				groupExpression = "date(created_at)"
+				whereExpression = "created_at >= datetime('now', '-30 days')"
+			case "year":
+				groupExpression = "strftime('%Y-%m-01', created_at)"
+				whereExpression = "created_at >= datetime('now', '-1 year')"
+			}
+			query = fmt.Sprintf(`
+				SELECT %s as period, COUNT(*) as total_orders, SUM(total_amount) as gross_income,
+				       SUM(tax_amount) as tax_collected, SUM(total_amount - tax_amount) as net_income
+				FROM orders WHERE %s AND status = 'completed'
+				GROUP BY %s ORDER BY period DESC`, groupExpression, whereExpression, groupExpression)
+		} else {
+			switch period {
+			case "week":
+				query = `
 				SELECT 
 					DATE_TRUNC('day', created_at) as period,
 					COUNT(*) as total_orders,
@@ -422,8 +477,8 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE_TRUNC('day', created_at)
 				ORDER BY period DESC
 			`
-		case "month":
-			query = `
+			case "month":
+				query = `
 				SELECT 
 					DATE_TRUNC('day', created_at) as period,
 					COUNT(*) as total_orders,
@@ -436,8 +491,8 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE_TRUNC('day', created_at)
 				ORDER BY period DESC
 			`
-		case "year":
-			query = `
+			case "year":
+				query = `
 				SELECT 
 					DATE_TRUNC('month', created_at) as period,
 					COUNT(*) as total_orders,
@@ -450,8 +505,8 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE_TRUNC('month', created_at)
 				ORDER BY period DESC
 			`
-		default: // today
-			query = `
+			default: // today
+				query = `
 				SELECT 
 					DATE_TRUNC('hour', created_at) as period,
 					COUNT(*) as total_orders,
@@ -464,6 +519,7 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				GROUP BY DATE_TRUNC('hour', created_at)
 				ORDER BY period DESC
 			`
+			}
 		}
 
 		rows, err := db.Query(query)
@@ -1526,7 +1582,7 @@ func getAdminUsers(db *sql.DB) gin.HandlerFunc {
 
 		if search != "" {
 			argCount++
-			queryBuilder += fmt.Sprintf(" AND (first_name ILIKE $%d OR last_name ILIKE $%d OR username ILIKE $%d OR email ILIKE $%d)", argCount, argCount, argCount, argCount)
+			queryBuilder += fmt.Sprintf(" AND (LOWER(first_name) LIKE LOWER($%d) OR LOWER(last_name) LIKE LOWER($%d) OR LOWER(username) LIKE LOWER($%d) OR LOWER(email) LIKE LOWER($%d))", argCount, argCount, argCount, argCount)
 			args = append(args, "%"+search+"%")
 		}
 
@@ -1642,7 +1698,7 @@ func getAdminCategories(db *sql.DB) gin.HandlerFunc {
 
 		if search != "" {
 			argCount++
-			queryBuilder += fmt.Sprintf(" AND (name ILIKE $%d OR description ILIKE $%d)", argCount, argCount)
+			queryBuilder += fmt.Sprintf(" AND (LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(description, '')) LIKE LOWER($%d))", argCount, argCount)
 			args = append(args, "%"+search+"%")
 		}
 
@@ -1755,7 +1811,7 @@ func getAdminTables(db *sql.DB) gin.HandlerFunc {
 
 		if location != "" {
 			argCount++
-			queryBuilder += fmt.Sprintf(" AND t.location ILIKE $%d", argCount)
+			queryBuilder += fmt.Sprintf(" AND LOWER(COALESCE(t.location, '')) LIKE LOWER($%d)", argCount)
 			args = append(args, "%"+location+"%")
 		}
 
@@ -1767,7 +1823,7 @@ func getAdminTables(db *sql.DB) gin.HandlerFunc {
 
 		if search != "" {
 			argCount++
-			queryBuilder += fmt.Sprintf(" AND (t.table_number ILIKE $%d OR t.location ILIKE $%d)", argCount, argCount)
+			queryBuilder += fmt.Sprintf(" AND (LOWER(t.table_number) LIKE LOWER($%d) OR LOWER(COALESCE(t.location, '')) LIKE LOWER($%d))", argCount, argCount)
 			args = append(args, "%"+search+"%")
 		}
 

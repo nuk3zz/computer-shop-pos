@@ -67,6 +67,9 @@ CREATE TABLE shop_profile (
     company_name VARCHAR(150) NOT NULL DEFAULT 'Computer Shop POS',
     logo_url VARCHAR(500),
     setup_completed BOOLEAN NOT NULL DEFAULT false,
+    network_mode VARCHAR(10) NOT NULL DEFAULT 'local' CHECK (network_mode IN ('local', 'lan')),
+    auto_backup BOOLEAN NOT NULL DEFAULT true,
+    backup_time VARCHAR(5) NOT NULL DEFAULT '02:30',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

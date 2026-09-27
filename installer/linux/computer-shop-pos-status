@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+systemctl --no-pager --full status computer-shop-pos.service || true
+echo ""
+echo "Local URL: http://localhost:3000"
+for address in $(hostname -I 2>/dev/null); do
+  case "$address" in
+    *:*) ;;
+    *) echo "LAN URL:   http://$address:3000" ;;
+  esac
+done
+if [ -r /etc/computer-shop-pos/data-dir ]; then
+  echo "Data:      $(head -n 1 /etc/computer-shop-pos/data-dir)"
+fi

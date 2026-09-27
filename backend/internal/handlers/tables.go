@@ -39,7 +39,7 @@ func (h *TableHandler) GetTables(c *gin.Context) {
 
 	if location != "" {
 		argIndex++
-		queryBuilder += ` AND t.location ILIKE $` + string(rune(argIndex+'0'))
+		queryBuilder += ` AND LOWER(COALESCE(t.location, '')) LIKE LOWER($` + string(rune(argIndex+'0')) + `)`
 		args = append(args, "%"+location+"%")
 	}
 
@@ -344,4 +344,3 @@ func (h *TableHandler) GetTableStatus(c *gin.Context) {
 		Data:    response,
 	})
 }
-

@@ -61,8 +61,50 @@ export interface ShopProfile {
   company_name: string;
   logo_url?: string;
   setup_completed: boolean;
+  network_mode: 'local' | 'lan';
+  auto_backup: boolean;
+  backup_time: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface InitialSetupInput {
+  company_name: string;
+  logo_url?: string;
+  first_name: string;
+  last_name?: string;
+  username: string;
+  email?: string;
+  password: string;
+  network_mode: 'local' | 'lan';
+}
+
+export interface SystemInfo {
+  version: string;
+  os: string;
+  arch: string;
+  native: boolean;
+  data_dir: string;
+  backup_dir: string;
+  network_mode: 'local' | 'lan';
+  addresses: string[];
+  auto_backup: boolean;
+  backup_time: string;
+}
+
+export interface BackupInfo {
+  name: string;
+  kind: 'automatic' | 'manual' | 'imported';
+  size: number;
+  created_at: string;
+}
+
+export interface UpdateInfo {
+  current_version: string;
+  latest_version?: string;
+  update_available: boolean;
+  release_name?: string;
+  release_url?: string;
 }
 
 // Product Types

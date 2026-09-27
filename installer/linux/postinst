@@ -1,0 +1,51 @@
+#!/bin/sh
+set -eu
+
+CONFIG_DIR=/etc/computer-shop-pos
+OWNER_FILE="$CONFIG_DIR/owner"
+DATA_FILE="$CONFIG_DIR/data-dir"
+mkdir -p "$CONFIG_DIR"
+
+if [ -s "$OWNER_FILE" ] && [ -s "$DATA_FILE" ]; then
+  POS_USER="$(head -n 1 "$OWNER_FILE")"
+  DATA_DIR="$(head -n 1 "$DATA_FILE")"
+else
+  POS_USER="${SUDO_USER:-}"
+  if [ -z "$POS_USER" ] || [ "$POS_USER" = root ] || ! id "$POS_USER" >/dev/null 2>&1; then
+    POS_USER="$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')"
+  fi
+  if [ -z "$POS_USER" ]; then
+    POS_USER=root
+  fi
+  POS_HOME="$(getent passwd "$POS_USER" | cut -d: -f6)"
+  DATA_DIR="$POS_HOME/Documents/Computer Shop POS"
+  printf '%s\n' "$POS_USER" > "$OWNER_FILE"
+  printf '%s\n' "$DATA_DIR" > "$DATA_FILE"
+  chmod 0600 "$OWNER_FILE" "$DATA_FILE"
+fi
+
+POS_GROUP="$(id -gn "$POS_USER")"
+POS_HOME="$(getent passwd "$POS_USER" | cut -d: -f6)"
+if [ ! -d "$POS_HOME/Documents" ]; then
+  install -d -m 0755 -o "$POS_USER" -g "$POS_GROUP" "$POS_HOME/Documents"
+fi
+install -d -m 0700 -o "$POS_USER" -g "$POS_GROUP" "$DATA_DIR"
+ESCAPED_DATA_DIR="$(printf '%s' "$DATA_DIR" | sed 's/[&|]/\\&/g')"
+sed -e "s|@USER@|$POS_USER|g" -e "s|@GROUP@|$POS_GROUP|g" -e "s|@DATA_DIR@|$ESCAPED_DATA_DIR|g" \
+  /usr/share/computer-shop-pos/computer-shop-pos.service.in > /etc/systemd/system/computer-shop-pos.service
+
+systemctl daemon-reload
+systemctl enable computer-shop-pos.service >/dev/null
+systemctl restart computer-shop-pos.service
+
+echo ""
+echo "Computer Shop POS is running."
+echo "Open http://localhost:3000 on this computer."
+for address in $(hostname -I 2>/dev/null); do
+  case "$address" in
+    *:*) ;;
+    *) echo "From the same Wi-Fi/LAN: http://$address:3000" ;;
+  esac
+done
+echo "Complete the first-run owner setup in your browser."
+echo "Data and backups: $DATA_DIR"

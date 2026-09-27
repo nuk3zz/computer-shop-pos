@@ -21,6 +21,10 @@ import type {
   Customer,
   CustomerInput,
   ShopProfile,
+  InitialSetupInput,
+  SystemInfo,
+  BackupInfo,
+  UpdateInfo,
 } from '@/types';
 
 class APIClient {
@@ -302,6 +306,60 @@ class APIClient {
 
   async updateShopProfile(profile: { company_name: string; logo_url?: string }): Promise<APIResponse<ShopProfile>> {
     return this.request({ method: 'PUT', url: '/admin/shop-profile', data: profile });
+  }
+
+  async getSetupStatus(): Promise<APIResponse<ShopProfile>> {
+    return this.request({ method: 'GET', url: '/setup/status' });
+  }
+
+  async uploadSetupLogo(file: File): Promise<APIResponse<{ url: string; content_type: string; size: number }>> {
+    const formData = new FormData();
+    formData.append('image', file);
+    return this.request({ method: 'POST', url: '/setup/upload', data: formData, headers: { 'Content-Type': 'multipart/form-data' } });
+  }
+
+  async completeInitialSetup(input: InitialSetupInput): Promise<APIResponse> {
+    return this.request({ method: 'POST', url: this.isAuthenticated() ? '/admin/setup/complete' : '/setup/complete', data: input });
+  }
+
+  async getSystemInfo(): Promise<APIResponse<SystemInfo>> {
+    return this.request({ method: 'GET', url: '/admin/system/info' });
+  }
+
+  async updateSystemPreferences(input: { network_mode: 'local' | 'lan'; auto_backup: boolean; backup_time: string }): Promise<APIResponse> {
+    return this.request({ method: 'PUT', url: '/admin/system/preferences', data: input });
+  }
+
+  async getBackups(): Promise<APIResponse<BackupInfo[]>> {
+    return this.request({ method: 'GET', url: '/admin/system/backups' });
+  }
+
+  async createBackup(): Promise<APIResponse<BackupInfo>> {
+    return this.request({ method: 'POST', url: '/admin/system/backups' });
+  }
+
+  async uploadBackup(file: File): Promise<APIResponse<BackupInfo>> {
+    const formData = new FormData();
+    formData.append('backup', file);
+    return this.request({ method: 'POST', url: '/admin/system/backups/upload', data: formData, headers: { 'Content-Type': 'multipart/form-data' } });
+  }
+
+  async restoreBackup(name: string): Promise<APIResponse<{ restart_required: boolean }>> {
+    return this.request({ method: 'POST', url: '/admin/system/restore', data: { name } });
+  }
+
+  async downloadBackup(name: string): Promise<void> {
+    const response = await this.client.get(`/admin/system/backups/${encodeURIComponent(name)}/download`, { responseType: 'blob' });
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async checkForUpdates(): Promise<APIResponse<UpdateInfo>> {
+    return this.request({ method: 'GET', url: '/admin/system/updates' });
   }
 
   // Admin-specific category management  

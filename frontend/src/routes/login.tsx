@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,11 +18,10 @@ function LoginPage() {
   const [formData, setFormData] = useState<LoginRequest>({ username: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-
-  // Check if already authenticated
-  if (apiClient.isAuthenticated()) {
-    return <Navigate to="/" />
-  }
+  const { data: setupProfile, isLoading: isSetupLoading } = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => apiClient.getSetupStatus().then((response) => response.data),
+  })
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginRequest) => {
@@ -48,6 +47,17 @@ function LoginPage() {
       setError(error.message || 'Login failed')
     },
   })
+
+  // Check setup and authentication after declaring hooks.
+  if (apiClient.isAuthenticated()) {
+    return <Navigate to="/" />
+  }
+  if (isSetupLoading) {
+    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading…</div>
+  }
+  if (setupProfile && !setupProfile.setup_completed) {
+    return <Navigate to="/setup" />
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

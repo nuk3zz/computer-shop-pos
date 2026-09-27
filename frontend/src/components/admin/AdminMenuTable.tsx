@@ -90,17 +90,15 @@ export function AdminMenuTable({
         const product = row.original
         return (
           <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
+            <button type="button" onClick={() => onViewImages?.(product)} className="flex-shrink-0" aria-label={`View details for ${product.name}`}>
               {product.image_url ? (
-                <button type="button" onClick={() => onViewImages?.(product)} aria-label={`View photos for ${product.name}`}>
-                  <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-12 w-12 rounded-lg object-cover" />
-                </button>
+                <img src={getMediaUrl(product.image_url)} alt={product.name} className="h-12 w-12 rounded-lg object-cover" />
               ) : (
-                <div className="h-12 w-12 rounded-lg bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center">
-                  <Package className="h-6 w-6 text-white" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100">
+                  <Package className="h-6 w-6 text-slate-400" />
                 </div>
               )}
-            </div>
+            </button>
             <div>
               <div className="font-medium text-gray-900">
                 {product.name}

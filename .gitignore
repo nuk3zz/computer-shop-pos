@@ -18,6 +18,9 @@ vendor/
 dist/
 build/
 tmp/
+dist-native/
+backend/computer-shop-pos-native-test
+backend/web/assets/
 
 # Log files
 *.log
@@ -84,6 +87,8 @@ files/
 # Database dumps
 *.dump
 *.backup
+!database/migrations/*.sql
+!backend/internal/database/*.sql
 
 # Temporary files
 *.tmp

@@ -1,12 +1,14 @@
 # Product galleries and first-run setup
 
-Source: [`raw/2026-09-28-product-gallery-setup-wizard-request.md`](../raw/2026-09-28-product-gallery-setup-wizard-request.md)
+Sources: [`raw/2026-09-28-product-gallery-setup-wizard-request.md`](../raw/2026-09-28-product-gallery-setup-wizard-request.md), [`raw/2026-09-28-product-detail-viewer-request.md`](../raw/2026-09-28-product-detail-viewer-request.md)
 
 ## Confirmed behavior
 
 - A catalog entry supports zero to ten ordered images.
 - The first image is the catalog thumbnail and remains mirrored in the legacy `products.image_url` field for compatibility.
 - Selecting a thumbnail opens a full-screen gallery with keyboard, button, and touch-swipe navigation.
+- The same viewer includes the full saved description, category, price, SKU when present, and stock or service duration. The free-form description is where the owner can record compatibility and feature details.
+- Entries without photos still open the detail viewer with a neutral image placeholder.
 - A singleton server-side shop profile stores company name, optional logo, and setup completion.
 - An authenticated administrator is redirected to setup until the profile is completed.
 - Company identity survives browser changes, container rebuilds, and restarts because it is stored in PostgreSQL; uploaded files remain in the persistent uploads volume.

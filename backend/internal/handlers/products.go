@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 type ProductHandler struct {
@@ -46,7 +45,6 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	// Build query with filters
 	queryBuilder := `
 		SELECT p.id, p.category_id, p.name, p.description, p.price, p.cost_price, p.item_type, p.image_url,
-		       COALESCE((SELECT array_agg(pi.image_url ORDER BY pi.sort_order) FROM product_images pi WHERE pi.product_id = p.id), ARRAY[]::varchar[]),
 		       p.barcode, p.sku, p.is_available, COALESCE(i.current_stock, 0), p.preparation_time, p.sort_order,
 		       p.created_at, p.updated_at,
 		       c.name as category_name, c.color as category_color
@@ -75,7 +73,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 
 	if search != "" {
 		argIndex++
-		queryBuilder += ` AND (p.name ILIKE $` + strconv.Itoa(argIndex) + ` OR p.description ILIKE $` + strconv.Itoa(argIndex) + `)`
+		queryBuilder += ` AND (LOWER(p.name) LIKE LOWER($` + strconv.Itoa(argIndex) + `) OR LOWER(COALESCE(p.description, '')) LIKE LOWER($` + strconv.Itoa(argIndex) + `))`
 		args = append(args, "%"+search+"%")
 	}
 
@@ -119,7 +117,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 
 		err := rows.Scan(
 			&product.ID, &product.CategoryID, &product.Name, &product.Description,
-			&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, pq.Array(&product.Images), &product.Barcode, &product.SKU,
+			&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, &product.Barcode, &product.SKU,
 			&product.IsAvailable, &product.StockQuantity, &product.PreparationTime, &product.SortOrder,
 			&product.CreatedAt, &product.UpdatedAt,
 			&categoryName, &categoryColor,
@@ -140,6 +138,10 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 				Name:  categoryName.String,
 				Color: &categoryColor.String,
 			}
+		}
+		if err := h.loadProductImages(&product); err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to load product images", Error: stringPtr(err.Error())})
+			return
 		}
 
 		products = append(products, product)
@@ -177,7 +179,6 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 
 	query := `
 		SELECT p.id, p.category_id, p.name, p.description, p.price, p.cost_price, p.item_type, p.image_url,
-		       COALESCE((SELECT array_agg(pi.image_url ORDER BY pi.sort_order) FROM product_images pi WHERE pi.product_id = p.id), ARRAY[]::varchar[]),
 		       p.barcode, p.sku, p.is_available, COALESCE(i.current_stock, 0), p.preparation_time, p.sort_order,
 		       p.created_at, p.updated_at,
 		       c.name as category_name, c.color as category_color
@@ -189,7 +190,7 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 
 	err = h.db.QueryRow(query, productID).Scan(
 		&product.ID, &product.CategoryID, &product.Name, &product.Description,
-		&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, pq.Array(&product.Images), &product.Barcode, &product.SKU,
+		&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, &product.Barcode, &product.SKU,
 		&product.IsAvailable, &product.StockQuantity, &product.PreparationTime, &product.SortOrder,
 		&product.CreatedAt, &product.UpdatedAt,
 		&categoryName, &categoryColor,
@@ -220,6 +221,10 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 			Name:  categoryName.String,
 			Color: &categoryColor.String,
 		}
+	}
+	if err := h.loadProductImages(&product); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to load product images", Error: stringPtr(err.Error())})
+		return
 	}
 
 	c.JSON(http.StatusOK, models.APIResponse{
@@ -298,7 +303,6 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 
 	query := `
 		SELECT p.id, p.category_id, p.name, p.description, p.price, p.cost_price, p.item_type, p.image_url,
-		       COALESCE((SELECT array_agg(pi.image_url ORDER BY pi.sort_order) FROM product_images pi WHERE pi.product_id = p.id), ARRAY[]::varchar[]),
 		       p.barcode, p.sku, p.is_available, COALESCE(i.current_stock, 0), p.preparation_time, p.sort_order,
 		       p.created_at, p.updated_at,
 		       c.name as category_name, c.color as category_color
@@ -332,7 +336,7 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 
 		err := rows.Scan(
 			&product.ID, &product.CategoryID, &product.Name, &product.Description,
-			&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, pq.Array(&product.Images), &product.Barcode, &product.SKU,
+			&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, &product.Barcode, &product.SKU,
 			&product.IsAvailable, &product.StockQuantity, &product.PreparationTime, &product.SortOrder,
 			&product.CreatedAt, &product.UpdatedAt,
 			&categoryName, &categoryColor,
@@ -354,6 +358,10 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 				Color: &categoryColor.String,
 			}
 		}
+		if err := h.loadProductImages(&product); err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to load product images", Error: stringPtr(err.Error())})
+			return
+		}
 
 		products = append(products, product)
 	}
@@ -363,4 +371,21 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 		Message: "Products retrieved successfully",
 		Data:    products,
 	})
+}
+
+func (h *ProductHandler) loadProductImages(product *models.Product) error {
+	rows, err := h.db.Query(`SELECT image_url FROM product_images WHERE product_id = $1 ORDER BY sort_order`, product.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	product.Images = []string{}
+	for rows.Next() {
+		var imageURL string
+		if err := rows.Scan(&imageURL); err != nil {
+			return err
+		}
+		product.Images = append(product.Images, imageURL)
+	}
+	return rows.Err()
 }

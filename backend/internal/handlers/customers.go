@@ -39,7 +39,7 @@ func (h *CustomerHandler) GetCustomers(c *gin.Context) {
 	pattern := "%" + search + "%"
 
 	var total int
-	if err := h.db.QueryRow(`SELECT COUNT(*) FROM customers WHERE $1 = '' OR name ILIKE $2 OR phone ILIKE $2`, search, pattern).Scan(&total); err != nil {
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM customers WHERE $1 = '' OR LOWER(name) LIKE LOWER($2) OR LOWER(phone) LIKE LOWER($2)`, search, pattern).Scan(&total); err != nil {
 		customerError(c, "Failed to count clients", err)
 		return
 	}
@@ -51,7 +51,7 @@ func (h *CustomerHandler) GetCustomers(c *gin.Context) {
 		       MAX(o.created_at)
 		FROM customers c
 		LEFT JOIN orders o ON o.customer_id = c.id
-		WHERE $1 = '' OR c.name ILIKE $2 OR c.phone ILIKE $2
+		WHERE $1 = '' OR LOWER(c.name) LIKE LOWER($2) OR LOWER(c.phone) LIKE LOWER($2)
 		GROUP BY c.id
 		ORDER BY MAX(o.created_at) DESC NULLS LAST, c.name ASC
 		LIMIT $3 OFFSET $4`, search, pattern, perPage, (page-1)*perPage)
