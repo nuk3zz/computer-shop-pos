@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -12,8 +13,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// JWT Secret - In production, this should be loaded from environment variables
-var jwtSecret = []byte("your-secret-key-change-this-in-production")
+// JWT secret is supplied by the self-host environment. The fallback is for
+// development only; production Compose always sets JWT_SECRET.
+var jwtSecret = []byte(getEnv("JWT_SECRET", "development-only-secret-change-me"))
 
 // Claims represents the JWT claims
 type Claims struct {
@@ -224,3 +226,9 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}

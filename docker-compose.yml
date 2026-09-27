@@ -1,65 +1,112 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: pos-postgres
     environment:
-      POSTGRES_DB: pos_system
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-pos_system}
+      POSTGRES_USER: ${POSTGRES_USER:-pos_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d
+      - ./database/init:/docker-entrypoint-initdb.d:ro
     networks:
       - pos-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Golang Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: pos-backend
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres123
-      - DB_NAME=pos_system
-      - PORT=8080
-      - UPLOAD_DIR=/root/uploads
-    ports:
-      - "8080:8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-pos_app}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DB_NAME: ${POSTGRES_DB:-pos_system}
+      DB_SSLMODE: disable
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      PORT: "8080"
+      GIN_MODE: release
+      UPLOAD_DIR: /root/uploads
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/root/uploads
     networks:
       - pos-network
-    volumes:
-      - ./backend:/app
-      - ./uploads:/root/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Frontend (TanStack Start)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
     container_name: pos-frontend
-    environment:
-      - VITE_API_URL=http://localhost:8080
     ports:
-      - "3000:3000"
+      - "0.0.0.0:3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - pos-network
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backup:
+    image: postgres:15-alpine
+    container_name: pos-backup
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pos_system}
+      POSTGRES_USER: ${POSTGRES_USER:-pos_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./scripts/backup-container.sh:/usr/local/bin/backup-container.sh:ro
+      - ./uploads:/uploads:ro
+      - ./backups/self-host:/backups
+    networks:
+      - pos-network
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo '0 21 * * * /usr/local/bin/backup-container.sh >> /proc/1/fd/1 2>> /proc/1/fd/2' | crontab -
+        exec crond -f -l 2
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

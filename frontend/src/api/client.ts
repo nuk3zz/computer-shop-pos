@@ -27,7 +27,7 @@ class APIClient {
   private client: AxiosInstance;
 
   constructor() {
-    const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:8080/api/v1';
+    const apiUrl = import.meta.env?.VITE_API_URL || '/api/v1';
     console.log('🔧 API Client baseURL:', apiUrl);
     console.log('🔧 Environment VITE_API_URL:', import.meta.env?.VITE_API_URL);
     

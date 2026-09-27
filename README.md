@@ -26,6 +26,12 @@ The confirmed scope and staged implementation plan are in the [product brief](kn
 
 The inherited catalog, order, payment, report, and receipt components are being converted incrementally. Restaurant-specific screens may remain during this transition and should not be treated as final product behavior.
 
+## Mac Mini self-hosting
+
+The production stack is available on the Mac Mini at `http://localhost:3000` and to trusted local-network devices at `http://<mac-mini-ip>:3000`. Only the web entry point is exposed; PostgreSQL and the backend API stay private inside Docker.
+
+See the [self-hosting guide](knowledge/self-hosting.md) for startup, backup, and safety details.
+
 ## Development setup
 
 Prerequisites: Docker Desktop with Docker Compose and Make.

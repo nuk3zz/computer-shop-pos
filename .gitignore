@@ -3,6 +3,7 @@
 .env.local
 .env.production
 .env.development
+.secrets/
 
 # Backup files
 backups/
@@ -21,6 +22,7 @@ tmp/
 # Log files
 *.log
 logs/
+runtime-logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
