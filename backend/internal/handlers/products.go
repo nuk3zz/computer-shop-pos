@@ -45,11 +45,12 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	// Build query with filters
 	queryBuilder := `
 		SELECT p.id, p.category_id, p.name, p.description, p.price, p.cost_price, p.item_type, p.image_url,
-		       p.barcode, p.sku, p.is_available, p.preparation_time, p.sort_order,
+		       p.barcode, p.sku, p.is_available, COALESCE(i.current_stock, 0), p.preparation_time, p.sort_order,
 		       p.created_at, p.updated_at,
 		       c.name as category_name, c.color as category_color
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id
+		LEFT JOIN inventory i ON i.product_id = p.id
 		WHERE 1=1
 	`
 
@@ -117,7 +118,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 		err := rows.Scan(
 			&product.ID, &product.CategoryID, &product.Name, &product.Description,
 			&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, &product.Barcode, &product.SKU,
-			&product.IsAvailable, &product.PreparationTime, &product.SortOrder,
+			&product.IsAvailable, &product.StockQuantity, &product.PreparationTime, &product.SortOrder,
 			&product.CreatedAt, &product.UpdatedAt,
 			&categoryName, &categoryColor,
 		)
@@ -174,18 +175,19 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 
 	query := `
 		SELECT p.id, p.category_id, p.name, p.description, p.price, p.cost_price, p.item_type, p.image_url,
-		       p.barcode, p.sku, p.is_available, p.preparation_time, p.sort_order,
+		       p.barcode, p.sku, p.is_available, COALESCE(i.current_stock, 0), p.preparation_time, p.sort_order,
 		       p.created_at, p.updated_at,
 		       c.name as category_name, c.color as category_color
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id
+		LEFT JOIN inventory i ON i.product_id = p.id
 		WHERE p.id = $1
 	`
 
 	err = h.db.QueryRow(query, productID).Scan(
 		&product.ID, &product.CategoryID, &product.Name, &product.Description,
 		&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, &product.Barcode, &product.SKU,
-		&product.IsAvailable, &product.PreparationTime, &product.SortOrder,
+		&product.IsAvailable, &product.StockQuantity, &product.PreparationTime, &product.SortOrder,
 		&product.CreatedAt, &product.UpdatedAt,
 		&categoryName, &categoryColor,
 	)
@@ -293,11 +295,12 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 
 	query := `
 		SELECT p.id, p.category_id, p.name, p.description, p.price, p.cost_price, p.item_type, p.image_url,
-		       p.barcode, p.sku, p.is_available, p.preparation_time, p.sort_order,
+		       p.barcode, p.sku, p.is_available, COALESCE(i.current_stock, 0), p.preparation_time, p.sort_order,
 		       p.created_at, p.updated_at,
 		       c.name as category_name, c.color as category_color
 		FROM products p
 		JOIN categories c ON p.category_id = c.id
+		LEFT JOIN inventory i ON i.product_id = p.id
 		WHERE p.category_id = $1
 	`
 
@@ -326,7 +329,7 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 		err := rows.Scan(
 			&product.ID, &product.CategoryID, &product.Name, &product.Description,
 			&product.Price, &product.CostPrice, &product.ItemType, &product.ImageURL, &product.Barcode, &product.SKU,
-			&product.IsAvailable, &product.PreparationTime, &product.SortOrder,
+			&product.IsAvailable, &product.StockQuantity, &product.PreparationTime, &product.SortOrder,
 			&product.CreatedAt, &product.UpdatedAt,
 			&categoryName, &categoryColor,
 		)

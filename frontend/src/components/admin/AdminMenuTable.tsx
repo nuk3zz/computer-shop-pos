@@ -26,6 +26,7 @@ import {
   Package,
   DollarSign,
   Clock,
+  Boxes,
   Tag
 } from "lucide-react"
 import type { Product, Category } from "@/types"
@@ -189,6 +190,16 @@ export function AdminMenuTable({
           </div>
         )
       },
+    },
+    {
+      accessorKey: "stock_quantity",
+      header: "Stock",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 text-sm">
+          <Boxes className="h-4 w-4 text-muted-foreground" />
+          {row.original.item_type === 'product' ? row.original.stock_quantity : 'Service'}
+        </div>
+      ),
     },
     {
       accessorKey: "preparation_time",

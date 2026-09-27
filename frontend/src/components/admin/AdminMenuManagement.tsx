@@ -15,7 +15,8 @@ import {
   Table,
   Grid3X3,
   DollarSign,
-  Clock
+  Clock,
+  Boxes
 } from 'lucide-react'
 import apiClient from '@/api/client'
 import { toastHelpers } from '@/lib/toast-helpers'
@@ -334,6 +335,12 @@ export function AdminMenuManagement() {
                               </Badge>
                               <Badge variant="outline">Cost {formatMoney(product.cost_price)}</Badge>
                               <Badge variant="outline" className="text-emerald-700">Profit {formatMoney(product.price - product.cost_price)}</Badge>
+                              {product.item_type === 'product' && (
+                                <Badge variant="outline">
+                                  <Boxes className="w-3 h-3 mr-1" />
+                                  {product.stock_quantity} in stock
+                                </Badge>
+                              )}
                               {product.preparation_time > 0 && (
                                 <Badge variant="outline" className="text-blue-600">
                                   <Clock className="w-3 h-3 mr-1" />

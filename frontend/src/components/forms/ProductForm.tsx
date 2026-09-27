@@ -62,6 +62,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         category_id: product.category_id,
         image_url: product.image_url || '',
         status: product.is_available ? ('active' as const) : ('inactive' as const),
+        stock_quantity: product.stock_quantity || 0,
         preparation_time: product.item_type === 'service' ? Math.max(1, Math.ceil(product.preparation_time / 1440)) : 0
       }
     : {
@@ -73,6 +74,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         category_id: categories[0]?.id || '',
         image_url: '',
         status: 'active' as const,
+        stock_quantity: 0,
         preparation_time: 0
       }
 
@@ -130,6 +132,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
     const { status, ...productData } = data
     const preparedData = {
       ...productData,
+      stock_quantity: productData.item_type === 'product' ? productData.stock_quantity || 0 : 0,
       preparation_time: productData.item_type === 'service'
         ? Math.max(1, productData.preparation_time || 1) * 1440
         : 0,
@@ -286,14 +289,25 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
 
               <PriceInputField control={form.control} name="price" label="Selling Price (LKR)" currency="Rs." description="Amount charged to the customer" />
 
-              <NumberInputField
-                control={form.control}
-                name="preparation_time"
-                label="Estimated Service Duration (days)"
-                min={itemType === 'service' ? 1 : 0}
-                max={365}
-                description={itemType === 'service' ? 'Minimum 1 day' : 'Not used for physical products'}
-              />
+              {itemType === 'product' ? (
+                <NumberInputField
+                  control={form.control}
+                  name="stock_quantity"
+                  label="Quantity in Stock"
+                  min={0}
+                  max={1000000}
+                  description="How many of this physical item you currently own"
+                />
+              ) : (
+                <NumberInputField
+                  control={form.control}
+                  name="preparation_time"
+                  label="Estimated Service Duration (days)"
+                  min={1}
+                  max={365}
+                  description="Minimum 1 day"
+                />
+              )}
             </div>
 
             {/* Category & Status */}

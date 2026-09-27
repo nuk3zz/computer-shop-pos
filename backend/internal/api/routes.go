@@ -80,6 +80,8 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.PUT("/products/:id", updateProduct(db))
 		admin.DELETE("/products/:id", deleteProduct(db))
 		admin.POST("/uploads/images", imageUploadHandler.UploadProductImage)
+		admin.POST("/customers", customerHandler.CreateCustomer)
+		admin.PUT("/customers/:id", customerHandler.UpdateCustomer)
 
 		// User management with pagination
 		admin.GET("/users", getAdminUsers(db)) // Update with pagination
@@ -721,6 +723,7 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			Barcode         *string `json:"barcode"`
 			SKU             *string `json:"sku"`
 			IsAvailable     *bool   `json:"is_available"`
+			StockQuantity   int     `json:"stock_quantity"`
 			PreparationTime int     `json:"preparation_time"`
 			SortOrder       int     `json:"sort_order"`
 		}
@@ -739,8 +742,19 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			c.JSON(400, gin.H{"success": false, "message": "Item type must be product or service"})
 			return
 		}
+		if req.StockQuantity < 0 {
+			c.JSON(400, gin.H{"success": false, "message": "Stock quantity cannot be negative"})
+			return
+		}
 
-		err := db.QueryRow(`
+		tx, err := db.Begin()
+		if err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to start product transaction", "error": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		err = tx.QueryRow(`
 			INSERT INTO products (category_id, name, description, price, cost_price, item_type, image_url, barcode, sku, is_available, preparation_time, sort_order)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, true), $11, $12)
 			RETURNING id
@@ -755,13 +769,21 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		stock := 0
+		stock := req.StockQuantity
 		if req.ItemType == "service" {
-			stock = 999
+			stock = 0
 		}
-		_, _ = db.Exec(`INSERT INTO inventory (product_id, current_stock, minimum_stock, maximum_stock, unit_cost)
+		if _, err := tx.Exec(`INSERT INTO inventory (product_id, current_stock, minimum_stock, maximum_stock, unit_cost)
 			VALUES ($1, $2, 0, $3, $4) ON CONFLICT (product_id) DO UPDATE SET unit_cost = EXCLUDED.unit_cost`,
-			productID, stock, stock, req.CostPrice)
+			productID, stock, stock, req.CostPrice); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to create product inventory", "error": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to save product", "error": err.Error()})
+			return
+		}
 
 		c.JSON(201, gin.H{
 			"success": true,
@@ -787,6 +809,7 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			Barcode         *string  `json:"barcode"`
 			SKU             *string  `json:"sku"`
 			IsAvailable     *bool    `json:"is_available"`
+			StockQuantity   *int     `json:"stock_quantity"`
 			PreparationTime *int     `json:"preparation_time"`
 			SortOrder       *int     `json:"sort_order"`
 		}
@@ -797,6 +820,10 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 				"message": "Invalid request body",
 				"error":   err.Error(),
 			})
+			return
+		}
+		if req.StockQuantity != nil && *req.StockQuantity < 0 {
+			c.JSON(400, gin.H{"success": false, "message": "Stock quantity cannot be negative"})
 			return
 		}
 
@@ -870,7 +897,7 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			argCount++
 		}
 
-		if len(updates) == 0 {
+		if len(updates) == 0 && req.StockQuantity == nil {
 			c.JSON(400, gin.H{
 				"success": false,
 				"message": "No fields to update",
@@ -887,7 +914,14 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			WHERE id = $%d
 		`, strings.Join(updates, ", "), argCount)
 
-		result, err := db.Exec(query, args...)
+		tx, err := db.Begin()
+		if err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to start product transaction", "error": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		result, err := tx.Exec(query, args...)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"success": false,
@@ -906,8 +940,37 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		if req.CostPrice != nil {
-			_, _ = db.Exec("UPDATE inventory SET unit_cost = $1 WHERE product_id = $2", *req.CostPrice, productID)
+		var itemType string
+		var costPrice float64
+		var currentStock int
+		if err := tx.QueryRow(`
+			SELECT p.item_type, p.cost_price, COALESCE(i.current_stock, 0)
+			FROM products p
+			LEFT JOIN inventory i ON i.product_id = p.id
+			WHERE p.id = $1`, productID).Scan(&itemType, &costPrice, &currentStock); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to read product inventory", "error": err.Error()})
+			return
+		}
+
+		if req.StockQuantity != nil {
+			currentStock = *req.StockQuantity
+		}
+		if itemType == "service" {
+			currentStock = 0
+		}
+		if _, err := tx.Exec(`
+			INSERT INTO inventory (product_id, current_stock, minimum_stock, maximum_stock, unit_cost)
+			VALUES ($1, $2, 0, $2, $3)
+			ON CONFLICT (product_id) DO UPDATE
+			SET current_stock = EXCLUDED.current_stock, unit_cost = EXCLUDED.unit_cost, updated_at = CURRENT_TIMESTAMP`,
+			productID, currentStock, costPrice); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to update product inventory", "error": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to save product", "error": err.Error()})
+			return
 		}
 
 		c.JSON(200, gin.H{

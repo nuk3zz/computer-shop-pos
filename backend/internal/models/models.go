@@ -45,6 +45,7 @@ type Product struct {
 	Barcode         *string    `json:"barcode"`
 	SKU             *string    `json:"sku"`
 	IsAvailable     bool       `json:"is_available"`
+	StockQuantity   int        `json:"stock_quantity"`
 	PreparationTime int        `json:"preparation_time"` // optional service duration in minutes
 	SortOrder       int        `json:"sort_order"`
 	CreatedAt       time.Time  `json:"created_at"`
@@ -57,6 +58,7 @@ type Customer struct {
 	ID         uuid.UUID  `json:"id"`
 	Name       string     `json:"name"`
 	Phone      string     `json:"phone"`
+	ImageURL   *string    `json:"image_url"`
 	Email      *string    `json:"email"`
 	Notes      *string    `json:"notes"`
 	OrderCount int        `json:"order_count"`

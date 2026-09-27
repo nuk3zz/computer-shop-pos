@@ -19,6 +19,7 @@ import type {
   OrderFilters,
   ProductFilters,
   Customer,
+  CustomerInput,
 } from '@/types';
 
 class APIClient {
@@ -140,6 +141,14 @@ class APIClient {
 
   async getCustomer(id: string): Promise<APIResponse<Customer>> {
     return this.request({ method: 'GET', url: `/customers/${id}` });
+  }
+
+  async createCustomer(customer: CustomerInput): Promise<APIResponse<Customer>> {
+    return this.request({ method: 'POST', url: '/admin/customers', data: customer });
+  }
+
+  async updateCustomer(id: string, customer: CustomerInput): Promise<APIResponse<Customer>> {
+    return this.request({ method: 'PUT', url: `/admin/customers/${id}`, data: customer });
   }
 
   // Order endpoints

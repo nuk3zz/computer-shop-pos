@@ -1,16 +1,21 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import apiClient from '@/api/client'
+import { ClientForm } from '@/components/clients/ClientForm'
+import { getMediaUrl } from '@/lib/media'
 import { formatMoney } from '@/lib/shop-settings'
 import type { Customer } from '@/types'
-import { Clock3, Phone, Search, ShoppingCart, UserRound, UsersRound, Wrench } from 'lucide-react'
+import { Clock3, Edit, Phone, Plus, Search, ShoppingCart, UserRound, UsersRound, Wrench } from 'lucide-react'
 
 export function ClientManagement() {
   const [search, setSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer>()
+  const [showClientForm, setShowClientForm] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState<Customer>()
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ['customers', search],
@@ -23,12 +28,29 @@ export function ClientManagement() {
     enabled: Boolean(selectedCustomer),
   })
 
+  const closeClientForm = () => {
+    setShowClientForm(false)
+    setEditingCustomer(undefined)
+    setSelectedCustomer(undefined)
+  }
+
+  if (showClientForm || editingCustomer) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <ClientForm customer={editingCustomer} onSuccess={closeClientForm} onCancel={closeClientForm} />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Manage Clients</h1>
-          <p className="mt-1 text-muted-foreground">Find repeat customers and review every linked purchase or service ticket.</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Manage Clients</h1>
+            <p className="mt-1 text-muted-foreground">Add clients manually, update their contact details, and review every linked transaction.</p>
+          </div>
+          <Button onClick={() => setShowClientForm(true)} className="gap-2"><Plus className="h-4 w-4" /> Add Client</Button>
         </div>
 
         <div className="relative max-w-xl">
@@ -60,9 +82,16 @@ export function ClientManagement() {
                   onClick={() => setSelectedCustomer(customer)}
                   className={`w-full rounded-lg border p-3 text-left transition-colors ${selectedCustomer?.id === customer.id ? 'border-slate-900 bg-slate-900 text-white' : 'bg-white hover:bg-slate-50'}`}
                 >
-                  <div className="truncate font-semibold">{customer.name}</div>
-                  <div className={`mt-1 flex items-center gap-1.5 text-sm ${selectedCustomer?.id === customer.id ? 'text-slate-300' : 'text-muted-foreground'}`}>
-                    <Phone className="h-3.5 w-3.5" /> {customer.phone}
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full ${selectedCustomer?.id === customer.id ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                      {customer.image_url ? <img src={getMediaUrl(customer.image_url)} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-5 w-5 text-slate-400" />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">{customer.name}</div>
+                      <div className={`mt-1 flex items-center gap-1.5 text-sm ${selectedCustomer?.id === customer.id ? 'text-slate-300' : 'text-muted-foreground'}`}>
+                        <Phone className="h-3.5 w-3.5" /> {customer.phone}
+                      </div>
+                    </div>
                   </div>
                   <div className={`mt-2 text-xs ${selectedCustomer?.id === customer.id ? 'text-slate-300' : 'text-muted-foreground'}`}>
                     {customer.order_count} transaction{customer.order_count === 1 ? '' : 's'} · {formatMoney(customer.total_spent)}
@@ -82,12 +111,24 @@ export function ClientManagement() {
             ) : (
               <>
                 <CardHeader className="border-b">
-                  <CardTitle>{selectedCustomer.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100">
+                        {selectedCustomer.image_url ? <img src={getMediaUrl(selectedCustomer.image_url)} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-7 w-7 text-slate-400" />}
+                      </div>
+                      <div>
+                        <CardTitle>{selectedCustomer.name}</CardTitle>
+                        <div className="mt-1 text-sm text-muted-foreground">{selectedCustomer.phone}</div>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setEditingCustomer(selectedCustomer)} className="gap-2"><Edit className="h-4 w-4" /> Edit Client</Button>
+                  </div>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
-                    <span>{selectedCustomer.phone}</span>
+                    {selectedCustomer.email && <span>{selectedCustomer.email}</span>}
                     <span>{selectedCustomer.order_count} total transactions</span>
                     <span>{formatMoney(selectedCustomer.total_spent)} total value</span>
                   </div>
+                  {selectedCustomer.notes && <p className="text-sm text-muted-foreground">{selectedCustomer.notes}</p>}
                 </CardHeader>
                 <CardContent className="space-y-3 pt-5">
                   {isHistoryLoading ? (

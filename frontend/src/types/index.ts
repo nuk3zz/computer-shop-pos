@@ -69,6 +69,7 @@ export interface Product {
   barcode?: string;
   sku?: string;
   is_available: boolean;
+  stock_quantity: number;
   preparation_time: number;
   sort_order: number;
   created_at: string;
@@ -80,6 +81,7 @@ export interface Customer {
   id: string;
   name: string;
   phone: string;
+  image_url?: string;
   email?: string;
   notes?: string;
   order_count: number;
@@ -87,6 +89,14 @@ export interface Customer {
   last_visit?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CustomerInput {
+  name: string;
+  phone: string;
+  image_url?: string;
+  email?: string;
+  notes?: string;
 }
 
 // Order Types

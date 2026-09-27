@@ -113,3 +113,22 @@
 ### Recovery point
 
 - Pre-reset data and uploads can be restored from `backups/self-host/*20260927-215207*`.
+
+## 2026-09-28 - Conditional catalog fields and manual client profiles
+
+### Worked
+
+- Physical-product forms now show Quantity in Stock and hide service duration; service/repair forms show duration in days and hide stock quantity.
+- Actual Cost and Selling Price remain available for both catalog types so service material costs can be captured.
+- Product API responses now include the persisted inventory quantity, and product plus inventory writes are committed atomically.
+- Removed the inherited fake stock value of 999 for services; services carry zero stock.
+- Added manual client creation and editing with name, WhatsApp/contact number, optional email, notes, and optional photo.
+- Client photos reuse the authenticated, validated 5 MB image-upload flow and render in the client list and profile header.
+
+### Verification
+
+- Go tests, TypeScript checking, and the production frontend build pass.
+- Runtime API checks proved a physical product persisted stock 7, updated to 11, and a service retained nonzero material cost plus two-day duration while forcing stock to zero.
+- Runtime API checks also proved manual client creation and editing of name, phone, email, notes, and photo reference; only exact temporary verification rows were removed.
+- Browser inspection confirmed Physical Product shows Quantity in Stock without duration, Service / Repair shows one-day-minimum duration without stock, and Manage Clients exposes the complete Add Client form.
+- A verified pre-migration recovery backup is available at `backups/self-host/*20260927-220817*`.
