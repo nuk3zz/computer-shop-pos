@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>io.github.computer-shop-pos</string>
+  <string>io.github.universal-repair-pos</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/computer-shop-pos</string>
+    <string>/usr/local/bin/universal-repair-pos</string>
     <string>--native</string>
     <string>--port=3000</string>
   </array>
@@ -17,8 +17,8 @@
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>/tmp/computer-shop-pos-launch.log</string>
+  <string>/tmp/universal-repair-pos-launch.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/computer-shop-pos-launch.log</string>
+  <string>/tmp/universal-repair-pos-launch.log</string>
 </dict>
 </plist>

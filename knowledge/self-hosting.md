@@ -20,7 +20,7 @@ Only port 3000 is published to the local network. Do not forward this port throu
 
 ## Persistent data
 
-- PostgreSQL data: Docker volume `computer-shop_postgres_data` (actual prefix may reflect the Compose project directory).
+- PostgreSQL data: the Compose-managed `postgres_data` volume (its actual prefix reflects the local project directory).
 - Uploaded item images: `uploads/` in the project directory.
 - Local backup archives: `backups/self-host/`.
 - Generated deployment and login secrets: `.env` and `.secrets/`; both are excluded from Git.
@@ -37,7 +37,7 @@ Never paste the password into Git, documentation, screenshots, or support messag
 
 - `scripts/start-self-host.sh` opens Docker Desktop when necessary, starts the stack, and secures the administrator account.
 - On macOS, a login LaunchAgent can open Docker Desktop when the server user signs in. It does not read the project folder, avoiding background-process privacy restrictions.
-- The versioned LaunchAgent definition is `deploy/macos/com.nuk3zz.computer-shop-pos.start.plist`; its installed copy belongs in `~/Library/LaunchAgents/`.
+- The versioned LaunchAgent definition is `deploy/macos/com.nuk3zz.universal-repair-pos.start.plist`; its installed copy belongs in `~/Library/LaunchAgents/`.
 - The `pos-backup` container creates a database dump and uploads archive on its configured daily schedule.
 - Containers use `restart: unless-stopped`, so Docker restarts the application and backup worker after Docker Desktop restarts.
 

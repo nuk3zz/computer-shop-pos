@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS product_images (
 
 CREATE TABLE IF NOT EXISTS shop_profile (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    company_name TEXT NOT NULL DEFAULT 'Computer Shop POS',
+    company_name TEXT NOT NULL DEFAULT 'Universal Repair POS',
     description TEXT NOT NULL DEFAULT 'Sales and repair management',
     logo_url TEXT,
     setup_completed BOOLEAN NOT NULL DEFAULT 0,
@@ -178,6 +178,6 @@ INSERT OR IGNORE INTO users (id, username, email, password_hash, first_name, las
 VALUES ('00000000-0000-4000-8000-000000000001', 'setup-owner', 'setup@localhost.invalid', '!', 'Setup', 'Owner', 'admin', 0);
 
 INSERT OR IGNORE INTO shop_profile (id, company_name, setup_completed, network_mode, auto_backup, backup_time)
-VALUES (1, 'Computer Shop POS', 0, 'local', 1, '02:30');
+VALUES (1, 'Universal Repair POS', 0, 'local', 1, '02:30');
 
 INSERT OR IGNORE INTO schema_migrations (version) VALUES (1);

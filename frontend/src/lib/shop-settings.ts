@@ -16,7 +16,7 @@ export interface ShopSettings {
 }
 
 export const defaultShopSettings: ShopSettings = {
-  shop_name: 'Computer Shop',
+  shop_name: 'Universal Repair POS',
   currency: 'LKR',
   tax_rate: '0',
   service_charge: '0',

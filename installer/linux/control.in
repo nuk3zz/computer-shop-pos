@@ -1,12 +1,15 @@
-Package: computer-shop-pos
+Package: universal-repair-pos
 Version: @VERSION@
 Section: misc
 Priority: optional
 Architecture: amd64
 Installed-Size: @INSTALLED_SIZE@
-Maintainer: Computer Shop POS <noreply@localhost>
+Maintainer: Universal Repair POS <noreply@localhost>
 Depends: systemd
-Homepage: https://github.com/nuk3zz/computer-shop-pos
-Description: Lightweight computer sales and repair shop server
- A self-contained web POS and repair-ticket server using SQLite. No Docker,
+Conflicts: computer-shop-pos
+Replaces: computer-shop-pos
+Provides: computer-shop-pos
+Homepage: https://github.com/nuk3zz/universal-repair-pos
+Description: Lightweight sales, service, and repair shop server
+ A self-contained universal POS and repair-ticket server using SQLite. No Docker,
  PostgreSQL, Node.js, or browser is bundled or required at runtime.

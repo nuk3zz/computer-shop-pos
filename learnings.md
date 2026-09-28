@@ -209,3 +209,10 @@
 - Added explicit web-app metadata and a dedicated Home Screen icon instead of the inherited Vite favicon.
 - A macOS package can reuse the pure-Go native server: two Go builds combine into one universal binary, while a LaunchAgent provides automatic startup and keeps SQLite data outside package ownership.
 - Unsigned public macOS packages are useful for internal testing but are not equivalent to Developer ID signing and Apple notarization; those require owner-held Apple credentials.
+
+## 2026-09-28 - Universal Repair POS identity
+
+- Adopted **Universal Repair POS** as the canonical product name so the application can serve computer, phone, electronics, appliance, craft, and other repair-and-retail businesses without category-specific branding.
+- Renamed public application surfaces, package artifacts, native binaries, services, launchers, the Home Screen manifest, updater endpoint, documentation, and the repository slug.
+- A product rename must not look like a fresh installation: the standalone runtime and installers migrate the former Documents directory and SQLite filename while continuing to accept legacy backup archives and environment configuration.
+- Windows keeps its stable Inno Setup application identifier for in-place upgrades; Linux declares package replacement and macOS retires the former LaunchAgent after preserving data.

@@ -2,8 +2,8 @@
 set -e
 
 if [ "${1:-}" = purge ]; then
-  rm -f /etc/systemd/system/computer-shop-pos.service
-  rm -rf /etc/computer-shop-pos
+  rm -f /etc/systemd/system/universal-repair-pos.service
+  rm -rf /etc/universal-repair-pos
   systemctl daemon-reload >/dev/null 2>&1 || true
-  echo "Computer Shop POS program settings were removed. Shop data in Documents was preserved."
+  echo "Universal Repair POS program settings were removed. Shop data in Documents was preserved."
 fi

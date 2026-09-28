@@ -19,7 +19,7 @@ ON CONFLICT (product_id, sort_order) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS shop_profile (
     id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-    company_name VARCHAR(150) NOT NULL DEFAULT 'Computer Shop POS',
+    company_name VARCHAR(150) NOT NULL DEFAULT 'Universal Repair POS',
     logo_url VARCHAR(500),
     setup_completed BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS shop_profile (
 );
 
 INSERT INTO shop_profile (id, company_name, setup_completed)
-VALUES (1, 'Computer Shop POS', false)
+VALUES (1, 'Universal Repair POS', false)
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

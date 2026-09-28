@@ -1,5 +1,5 @@
 [Unit]
-Description=Computer Shop POS server
+Description=Universal Repair POS server
 After=network-online.target
 Wants=network-online.target
 
@@ -8,7 +8,7 @@ Type=simple
 User=@USER@
 Group=@GROUP@
 WorkingDirectory="@DATA_DIR@"
-ExecStart=/usr/bin/computer-shop-pos --native "--data-dir=@DATA_DIR@" --port=3000
+ExecStart=/usr/bin/universal-repair-pos --native "--data-dir=@DATA_DIR@" --port=3000
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true

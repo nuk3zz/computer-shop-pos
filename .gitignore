@@ -19,7 +19,7 @@ dist/
 build/
 tmp/
 dist-native/
-backend/computer-shop-pos-native-test
+backend/universal-repair-pos-native-test
 backend/web/assets/
 
 # Log files

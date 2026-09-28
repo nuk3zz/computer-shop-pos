@@ -80,7 +80,7 @@ func (h *MaintenanceHandler) DownloadBackup(c *gin.Context) {
 func (h *MaintenanceHandler) UploadBackup(c *gin.Context) {
 	file, err := c.FormFile("backup")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Choose a .cspbackup file"})
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Choose a .urposbackup file"})
 		return
 	}
 	input, err := file.Open()
@@ -109,7 +109,7 @@ func (h *MaintenanceHandler) StageRestore(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Restore could not be staged", Error: stringPtr(err.Error())})
 		return
 	}
-	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "Restore verified and staged. Restart the Computer Shop POS service to apply it.", Data: gin.H{"restart_required": true}})
+	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "Restore verified and staged. Restart Universal Repair POS to apply it.", Data: gin.H{"restart_required": true}})
 }
 
 func (h *MaintenanceHandler) UpdatePreferences(c *gin.Context) {
@@ -131,9 +131,9 @@ func (h *MaintenanceHandler) UpdatePreferences(c *gin.Context) {
 }
 
 func (h *MaintenanceHandler) CheckUpdates(c *gin.Context) {
-	request, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, "https://api.github.com/repos/nuk3zz/computer-shop-pos/releases/latest", nil)
+	request, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, "https://api.github.com/repos/nuk3zz/universal-repair-pos/releases/latest", nil)
 	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("User-Agent", "Computer-Shop-POS/"+h.version)
+	request.Header.Set("User-Agent", "Universal-Repair-POS/"+h.version)
 	response, err := (&http.Client{Timeout: 12 * time.Second}).Do(request)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, models.APIResponse{Success: false, Message: "Could not contact the update server", Error: stringPtr(err.Error())})
@@ -212,7 +212,7 @@ func (h *MaintenanceHandler) StartFresh(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not preserve the owner account", Error: stringPtr(err.Error())})
 		return
 	}
-	if _, err := tx.Exec(`UPDATE shop_profile SET company_name = 'Computer Shop POS', description = 'Sales and repair management',
+	if _, err := tx.Exec(`UPDATE shop_profile SET company_name = 'Universal Repair POS', description = 'Sales, service, and repair management',
 		logo_url = NULL, setup_completed = false, updated_at = CURRENT_TIMESTAMP WHERE id = 1`); err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not reset shop identity", Error: stringPtr(err.Error())})
 		return

@@ -136,7 +136,7 @@ export function AdminSidebar({ user, shopProfile }: AdminSidebarProps) {
                   <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><LayoutDashboard className="w-5 h-5 text-primary-foreground" /></div>
                 )}
                 <div>
-                  <h1 className="max-w-40 truncate font-bold text-foreground">{shopProfile?.company_name || 'Computer Shop POS'}</h1>
+                  <h1 className="max-w-40 truncate font-bold text-foreground">{shopProfile?.company_name || 'Universal Repair POS'}</h1>
                   <p className="max-w-40 truncate text-xs text-muted-foreground">{shopProfile?.description || 'Sales and repair management'}</p>
                 </div>
               </div>

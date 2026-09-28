@@ -1,6 +1,6 @@
 -- Destructive one-time conversion requested for the current restaurant demo database.
 -- Preserve the administrator account, remove all restaurant/demo business data,
--- and load the computer-shop starter catalog.
+-- and create a clean repair-shop catalog.
 
 BEGIN;
 
@@ -23,7 +23,7 @@ ALTER TABLE orders ADD CONSTRAINT orders_order_type_check
     CHECK (order_type IN ('sale', 'service'));
 
 UPDATE users
-SET email = 'admin@computer-shop.local',
+SET email = 'admin@universal-repair-pos.local',
     first_name = 'Shop',
     last_name = 'Administrator',
     role = 'admin',

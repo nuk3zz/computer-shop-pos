@@ -4,10 +4,10 @@
 
 - Fork and configure upstream remote.
 - Add the standard knowledge architecture.
-- Record the computer-shop requirements and conversion risks.
+- Record the repair-and-retail requirements and conversion risks.
 - Verify the inherited project builds before relying on it.
 
-## Phase 1 - Computer-shop catalog
+## Phase 1 - Repair-shop catalog
 
 - Completed: rebrand primary UI to products and services.
 - Completed: add item kind, cost price, selling price, and flexible estimated duration.
@@ -22,7 +22,7 @@ Acceptance: an owner can create a cable with stock/cost/sale price and an upload
 - Partially completed: customer name, WhatsApp phone, and device/fault notes are captured on service intake.
 - Completed: create work orders containing services and parts.
 - Add stable workflow keys with editable labels/colors.
-- Completed: replace the kitchen display with Repair Tickets and computer-shop status labels.
+- Completed: replace the kitchen display with Repair Tickets and repair-workflow status labels.
 - Completed: add editable WhatsApp templates and pre-filled customer contact links.
 
 Acceptance: a repair can move through owner-labelled stages with a full status history.

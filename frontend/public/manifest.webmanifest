@@ -1,7 +1,7 @@
 {
-  "name": "Computer Shop POS",
-  "short_name": "Shop POS",
-  "description": "Computer sales, inventory, and repair management",
+  "name": "Universal Repair POS",
+  "short_name": "Repair POS",
+  "description": "Sales, inventory, service, and repair management",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

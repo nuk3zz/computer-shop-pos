@@ -36,4 +36,4 @@ Cards use a compact 16:10 thumbnail and a short content hierarchy: name, price, 
 
 Catalog cards avoid decorative metric pills. Each compact card uses a small thumbnail, one-line name and description, unobtrusive edit/delete actions, then a plain two-column summary for selling price, cost, profit, and stock or service duration. Category and item type share one muted metadata line. This behavior was confirmed against the owner's [sales reference](../raw/2026-09-28-sales-card-density-reference.png) and [catalog reference](../raw/2026-09-28-catalog-card-density-reference.png).
 
-Related: [computer-shop conversion](computer-shop-conversion.md), [domain model](domain-model.md), and [architecture](architecture.md).
+Related: [repair-shop conversion](repair-shop-conversion.md), [domain model](domain-model.md), and [architecture](architecture.md).

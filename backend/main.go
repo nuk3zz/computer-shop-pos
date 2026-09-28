@@ -42,12 +42,12 @@ func main() {
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 	if *versionFlag {
-		log.Printf("Computer Shop POS %s (%s, %s)", version, commit, buildDate)
+		log.Printf("Universal Repair POS %s (%s, %s)", version, commit, buildDate)
 		return
 	}
 
 	_ = godotenv.Load()
-	native := *nativeFlag || strings.EqualFold(os.Getenv("DB_DRIVER"), "sqlite") || os.Getenv("COMPUTER_SHOP_NATIVE") == "1"
+	native := *nativeFlag || strings.EqualFold(os.Getenv("DB_DRIVER"), "sqlite") || os.Getenv("UNIVERSAL_REPAIR_POS_NATIVE") == "1" || os.Getenv("COMPUTER_SHOP_NATIVE") == "1"
 	dataDir := *dataDirFlag
 	if dataDir == "" {
 		dataDir = database.DefaultDataDir()
@@ -140,7 +140,7 @@ func main() {
 			port = getEnv("PORT", "8080")
 		}
 	}
-	log.Printf("Computer Shop POS %s starting at http://localhost:%s", version, port)
+	log.Printf("Universal Repair POS %s starting at http://localhost:%s", version, port)
 	if native {
 		for _, address := range lanAddresses() {
 			log.Printf("LAN address: http://%s:%s", address, port)

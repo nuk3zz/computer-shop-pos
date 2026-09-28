@@ -39,10 +39,10 @@ jobs:
       - name: Build native server and Debian installer
         shell: bash
         run: |
-          chmod +x scripts/build-native.sh scripts/build-linux-deb.sh installer/linux/postinst installer/linux/prerm installer/linux/postrm installer/linux/computer-shop-pos-status
+          chmod +x scripts/build-native.sh scripts/build-linux-deb.sh installer/linux/postinst installer/linux/prerm installer/linux/postrm installer/linux/universal-repair-pos-status
           scripts/build-native.sh linux amd64 "$VERSION" "$PWD/dist-native"
-          scripts/build-linux-deb.sh "$VERSION" "$PWD/dist-native/computer-shop-pos" "$PWD/dist-native"
-          "$PWD/dist-native/computer-shop-pos" --version
+          scripts/build-linux-deb.sh "$VERSION" "$PWD/dist-native/universal-repair-pos" "$PWD/dist-native"
+          "$PWD/dist-native/universal-repair-pos" --version
           dpkg-deb --info "$PWD/dist-native/"*.deb
       - uses: actions/upload-artifact@v4
         with:
@@ -79,8 +79,8 @@ jobs:
         run: |
           choco install innosetup --no-progress -y
           New-Item -ItemType Directory -Force installer/windows/build | Out-Null
-          Copy-Item "dist-native/computer-shop-pos.exe" installer/windows/build/computer-shop-pos.exe
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:VERSION" installer/windows/computer-shop-pos.iss
+          Copy-Item "dist-native/universal-repair-pos.exe" installer/windows/build/universal-repair-pos.exe
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:VERSION" installer/windows/universal-repair-pos.iss
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64-installer
@@ -114,10 +114,10 @@ jobs:
           chmod +x scripts/build-native.sh scripts/build-macos-pkg.sh installer/macos/scripts/postinstall
           scripts/build-native.sh darwin arm64 "$VERSION" "$PWD/dist-native/arm64"
           scripts/build-native.sh darwin amd64 "$VERSION" "$PWD/dist-native/amd64"
-          lipo -create -output "$PWD/dist-native/computer-shop-pos" "$PWD/dist-native/arm64/computer-shop-pos" "$PWD/dist-native/amd64/computer-shop-pos"
-          scripts/build-macos-pkg.sh "$VERSION" "$PWD/dist-native/computer-shop-pos" "$PWD/dist-native"
-          lipo -archs "$PWD/dist-native/computer-shop-pos"
-          pkgutil --payload-files "$PWD/dist-native/Computer-Shop-POS-$VERSION-macOS-Universal.pkg"
+          lipo -create -output "$PWD/dist-native/universal-repair-pos" "$PWD/dist-native/arm64/universal-repair-pos" "$PWD/dist-native/amd64/universal-repair-pos"
+          scripts/build-macos-pkg.sh "$VERSION" "$PWD/dist-native/universal-repair-pos" "$PWD/dist-native"
+          lipo -archs "$PWD/dist-native/universal-repair-pos"
+          pkgutil --payload-files "$PWD/dist-native/Universal-Repair-POS-$VERSION-macOS-Universal.pkg"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal-installer
@@ -136,4 +136,4 @@ jobs:
       - name: Publish installers
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "Computer Shop POS $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "Universal Repair POS $GITHUB_REF_NAME" --generate-notes

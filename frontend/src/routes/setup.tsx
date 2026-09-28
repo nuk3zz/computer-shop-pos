@@ -41,7 +41,7 @@ function SetupPage() {
 
   useEffect(() => {
     if (!profile || companyName) return
-    setCompanyName(profile.company_name === 'Computer Shop POS' ? '' : profile.company_name)
+    setCompanyName(profile.setup_completed ? profile.company_name : '')
     setNetworkMode(profile.network_mode || 'local')
   }, [companyName, profile])
 

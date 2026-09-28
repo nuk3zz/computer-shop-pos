@@ -34,7 +34,7 @@ export function RoleBasedLayout({ user }: RoleBasedLayoutProps) {
     <div className="min-h-screen bg-background">
       <header className="flex items-center justify-between border-b bg-white px-6 py-3">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 font-bold"><LayoutDashboard className="h-5 w-5" /> Computer Shop POS</div>
+          <div className="flex items-center gap-2 font-bold"><LayoutDashboard className="h-5 w-5" /> Universal Repair POS</div>
           <nav className="flex gap-2">
             {canUseSales && <Button size="sm" variant={currentView === 'sales' ? 'default' : 'ghost'} onClick={() => setCurrentView('sales')}><ShoppingCart className="mr-2 h-4 w-4" /> Sales & Services</Button>}
             {canUseRepairs && <Button size="sm" variant={currentView === 'repairs' ? 'default' : 'ghost'} onClick={() => setCurrentView('repairs')}><Wrench className="mr-2 h-4 w-4" /> Repair Tickets</Button>}

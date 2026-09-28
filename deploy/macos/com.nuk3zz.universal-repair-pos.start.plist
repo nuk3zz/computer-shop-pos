@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.nuk3zz.computer-shop-pos.start</string>
+	<string>com.nuk3zz.universal-repair-pos.start</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/bin/open</string>

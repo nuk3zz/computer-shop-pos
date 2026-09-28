@@ -12,7 +12,7 @@ mkdir -p "$credentials_dir"
 
 if [[ ! -f "$credentials_file" ]]; then
   admin_password=$(openssl rand -hex 16)
-  printf 'Computer Shop POS\nUsername: admin\nPassword: %s\n' "$admin_password" > "$credentials_file"
+  printf 'Universal Repair POS\nUsername: admin\nPassword: %s\n' "$admin_password" > "$credentials_file"
   chmod 600 "$credentials_file"
 else
   admin_password=$(sed -n 's/^Password: //p' "$credentials_file")

@@ -61,7 +61,7 @@ export function AdminSettings() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-muted-foreground">Configure your computer shop, money display, and customer messages.</p>
+          <p className="text-muted-foreground">Configure your business, money display, and customer messages.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleReset}><RotateCcw className="mr-2 h-4 w-4" />Reset</Button>

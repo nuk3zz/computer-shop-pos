@@ -1,4 +1,4 @@
-# Computer-shop conversion
+# Repair-shop conversion
 
 Sources: [`../raw/2026-09-27-restaurant-ui-screenshot.png`](../raw/2026-09-27-restaurant-ui-screenshot.png) and [`../raw/2026-09-27-commerce-and-repair-workflow-request.md`](../raw/2026-09-27-commerce-and-repair-workflow-request.md)
 
@@ -6,7 +6,7 @@ Sources: [`../raw/2026-09-27-restaurant-ui-screenshot.png`](../raw/2026-09-27-re
 
 - Remove restaurant-facing navigation, language, sample data, and workflows.
 - Do not expose tables, seating, guests, servers, kitchen displays, dine-in, takeaway, or food preparation concepts.
-- Replace the order-entry screen with a computer-shop sales and services workspace.
+- Replace the order-entry screen with a universal repair-shop sales and services workspace.
 - Support both direct product sales and service/repair tickets.
 - Show uploaded product or service images as thumbnails in the selling grid.
 - Start the catalog with computer-focused categories and examples such as RAM, motherboards, processors, storage, accessories, software installation, cleaning, and diagnostics.
@@ -26,8 +26,8 @@ Sources: [`../raw/2026-09-27-restaurant-ui-screenshot.png`](../raw/2026-09-27-re
 - Repair Tickets replaces Kitchen Display.
 - Catalog & Inventory replaces Manage Menu.
 - Dining-table management is removed from navigation and API registration.
-- Stable existing status keys remain internal for compatibility; the repair queue supplies computer-shop display labels.
-- The database reset migration removes restaurant transactions, tables, demo staff, categories, and food items before inserting a clean computer-shop starter catalog.
+- Stable existing status keys remain internal for compatibility; the repair queue supplies repair-workflow display labels.
+- The database reset migration removes restaurant transactions, tables, demo staff, categories, and food items before creating a clean catalog.
 - Catalog type distinguishes physical products from services; selecting a service automatically changes checkout into a repair ticket.
 - Repair status labels map stable internal keys to Waiting, Diagnosing, In progress, Waiting for customer, and Delivered / completed.
 - Financial and WhatsApp preferences are saved locally in the browser. LKR and zero charges are the committed defaults.

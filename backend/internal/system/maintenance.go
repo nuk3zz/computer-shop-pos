@@ -21,7 +21,12 @@ import (
 	"pos-backend/internal/database"
 )
 
-const backupExtension = ".cspbackup"
+const (
+	backupExtension       = ".urposbackup"
+	legacyBackupExtension = ".cspbackup"
+	backupDatabasePath    = "data/universal-repair-pos.db"
+	legacyDatabasePath    = "data/computer-shop-pos.db"
+)
 
 type Manager struct {
 	db      *sql.DB
@@ -86,7 +91,7 @@ func (m *Manager) CreateBackup(kind, appVersion string) (BackupInfo, error) {
 		return BackupInfo{}, err
 	}
 	zipWriter := zip.NewWriter(archive)
-	writeErr := m.addFile(zipWriter, snapshotPath, "data/computer-shop-pos.db", manifest.Checksums)
+	writeErr := m.addFile(zipWriter, snapshotPath, backupDatabasePath, manifest.Checksums)
 	if writeErr == nil {
 		uploadRoot := filepath.Join(m.dataDir, "uploads")
 		writeErr = filepath.WalkDir(uploadRoot, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -158,7 +163,7 @@ func (m *Manager) ListBackups() ([]BackupInfo, error) {
 	}
 	backups := make([]BackupInfo, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), backupExtension) {
+		if entry.IsDir() || (!strings.HasSuffix(entry.Name(), backupExtension) && !strings.HasSuffix(entry.Name(), legacyBackupExtension)) {
 			continue
 		}
 		info, err := entry.Info()
@@ -176,7 +181,7 @@ func (m *Manager) ListBackups() ([]BackupInfo, error) {
 }
 
 func (m *Manager) BackupPath(name string) (string, error) {
-	if filepath.Base(name) != name || !strings.HasSuffix(name, backupExtension) {
+	if filepath.Base(name) != name || (!strings.HasSuffix(name, backupExtension) && !strings.HasSuffix(name, legacyBackupExtension)) {
 		return "", errors.New("invalid backup name")
 	}
 	path := filepath.Join(m.BackupDir(), name)
@@ -282,7 +287,7 @@ func ValidateBackup(path string) error {
 		if copyErr != nil || hex.EncodeToString(hash.Sum(nil)) != expected {
 			return fmt.Errorf("backup checksum failed for %s", file.Name)
 		}
-		if file.Name == "data/computer-shop-pos.db" {
+		if file.Name == backupDatabasePath || file.Name == legacyDatabasePath {
 			foundDatabase = true
 		}
 	}
@@ -340,11 +345,14 @@ func ApplyPendingRestore(dataDir string) (bool, error) {
 		return false, err
 	}
 	stageDir := filepath.Join(dataDir, "data", "restore-staging")
-	stagedDatabase := filepath.Join(stageDir, "data", "computer-shop-pos.db")
+	stagedDatabase := filepath.Join(stageDir, filepath.FromSlash(backupDatabasePath))
+	if _, err := os.Stat(stagedDatabase); os.IsNotExist(err) {
+		stagedDatabase = filepath.Join(stageDir, filepath.FromSlash(legacyDatabasePath))
+	}
 	if _, err := os.Stat(stagedDatabase); err != nil {
 		return false, fmt.Errorf("staged restore database is missing: %w", err)
 	}
-	databasePath := filepath.Join(dataDir, "data", "computer-shop-pos.db")
+	databasePath := filepath.Join(dataDir, "data", "universal-repair-pos.db")
 	suffix := time.Now().Format("20060102-150405")
 	if _, err := os.Stat(databasePath); err == nil {
 		if err := os.Rename(databasePath, databasePath+".before-restore-"+suffix); err != nil {

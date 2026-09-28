@@ -1,10 +1,18 @@
 #!/bin/sh
 set -eu
 
-CONFIG_DIR=/etc/computer-shop-pos
+CONFIG_DIR=/etc/universal-repair-pos
 OWNER_FILE="$CONFIG_DIR/owner"
 DATA_FILE="$CONFIG_DIR/data-dir"
 mkdir -p "$CONFIG_DIR"
+
+# Carry an existing installation forward under the new product name.
+if [ ! -s "$OWNER_FILE" ] && [ -s /etc/computer-shop-pos/owner ]; then
+  cp /etc/computer-shop-pos/owner "$OWNER_FILE"
+fi
+if [ ! -s "$DATA_FILE" ] && [ -s /etc/computer-shop-pos/data-dir ]; then
+  cp /etc/computer-shop-pos/data-dir "$DATA_FILE"
+fi
 
 if [ -s "$OWNER_FILE" ] && [ -s "$DATA_FILE" ]; then
   POS_USER="$(head -n 1 "$OWNER_FILE")"
@@ -18,28 +26,37 @@ else
     POS_USER=root
   fi
   POS_HOME="$(getent passwd "$POS_USER" | cut -d: -f6)"
-  DATA_DIR="$POS_HOME/Documents/Computer Shop POS"
+  DATA_DIR="$POS_HOME/Documents/Universal Repair POS"
   printf '%s\n' "$POS_USER" > "$OWNER_FILE"
   printf '%s\n' "$DATA_DIR" > "$DATA_FILE"
   chmod 0600 "$OWNER_FILE" "$DATA_FILE"
 fi
 
-POS_GROUP="$(id -gn "$POS_USER")"
 POS_HOME="$(getent passwd "$POS_USER" | cut -d: -f6)"
+LEGACY_DATA_DIR="$POS_HOME/Documents/Computer Shop POS"
+NEW_DATA_DIR="$POS_HOME/Documents/Universal Repair POS"
+if [ "$DATA_DIR" = "$LEGACY_DATA_DIR" ] && [ -d "$LEGACY_DATA_DIR" ] && [ ! -e "$NEW_DATA_DIR" ]; then
+  mv "$LEGACY_DATA_DIR" "$NEW_DATA_DIR"
+  DATA_DIR="$NEW_DATA_DIR"
+  printf '%s\n' "$DATA_DIR" > "$DATA_FILE"
+fi
+
+POS_GROUP="$(id -gn "$POS_USER")"
 if [ ! -d "$POS_HOME/Documents" ]; then
   install -d -m 0755 -o "$POS_USER" -g "$POS_GROUP" "$POS_HOME/Documents"
 fi
 install -d -m 0700 -o "$POS_USER" -g "$POS_GROUP" "$DATA_DIR"
 ESCAPED_DATA_DIR="$(printf '%s' "$DATA_DIR" | sed 's/[&|]/\\&/g')"
 sed -e "s|@USER@|$POS_USER|g" -e "s|@GROUP@|$POS_GROUP|g" -e "s|@DATA_DIR@|$ESCAPED_DATA_DIR|g" \
-  /usr/share/computer-shop-pos/computer-shop-pos.service.in > /etc/systemd/system/computer-shop-pos.service
+  /usr/share/universal-repair-pos/universal-repair-pos.service.in > /etc/systemd/system/universal-repair-pos.service
 
 systemctl daemon-reload
-systemctl enable computer-shop-pos.service >/dev/null
-systemctl restart computer-shop-pos.service
+systemctl disable --now computer-shop-pos.service >/dev/null 2>&1 || true
+systemctl enable universal-repair-pos.service >/dev/null
+systemctl restart universal-repair-pos.service
 
 echo ""
-echo "Computer Shop POS is running."
+echo "Universal Repair POS is running."
 echo "Open http://localhost:3000 on this computer."
 for address in $(hostname -I 2>/dev/null); do
   case "$address" in

@@ -55,6 +55,10 @@ func connectPostgres(config Config) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
+	if _, err := db.Exec(`UPDATE shop_profile SET company_name = 'Universal Repair POS', description = CASE WHEN description = 'Sales and repair management' THEN 'Sales, service, and repair management' ELSE description END, updated_at = CURRENT_TIMESTAMP WHERE company_name = 'Computer Shop POS'`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("apply product identity migration: %w", err)
+	}
 	log.Println("PostgreSQL connection established successfully")
 	return db, nil
 }
@@ -67,7 +71,18 @@ func connectSQLite(dataDir string) (*sql.DB, error) {
 	if err := os.MkdirAll(databaseDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
-	databasePath := filepath.Join(databaseDir, "computer-shop-pos.db")
+	databasePath := filepath.Join(databaseDir, "universal-repair-pos.db")
+	legacyDatabasePath := filepath.Join(databaseDir, "computer-shop-pos.db")
+	if _, err := os.Stat(databasePath); os.IsNotExist(err) {
+		if _, legacyErr := os.Stat(legacyDatabasePath); legacyErr == nil {
+			if renameErr := os.Rename(legacyDatabasePath, databasePath); renameErr != nil {
+				return nil, fmt.Errorf("migrate legacy SQLite database name: %w", renameErr)
+			}
+			for _, suffix := range []string{"-wal", "-shm"} {
+				_ = os.Rename(legacyDatabasePath+suffix, databasePath+suffix)
+			}
+		}
+	}
 	dsn := "file:" + filepath.ToSlash(databasePath) + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_time_format=sqlite"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -110,7 +125,10 @@ func applySQLiteCompatibilityMigrations(db *sql.DB) error {
 			}
 		}
 	}
-	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (2)`)
+	if _, err := db.Exec(`UPDATE shop_profile SET company_name = 'Universal Repair POS', description = 'Sales, service, and repair management', updated_at = CURRENT_TIMESTAMP WHERE company_name = 'Computer Shop POS'`); err != nil {
+		return err
+	}
+	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (3)`)
 	return err
 }
 
@@ -149,19 +167,38 @@ func SQLitePath(db *sql.DB) (string, bool) {
 }
 
 func DefaultDataDir() string {
+	if configured := strings.TrimSpace(os.Getenv("UNIVERSAL_REPAIR_POS_DATA_DIR")); configured != "" {
+		return configured
+	}
+	// Keep the former override working so upgrades never lose sight of existing data.
 	if configured := strings.TrimSpace(os.Getenv("COMPUTER_SHOP_DATA_DIR")); configured != "" {
 		return configured
 	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
-		return filepath.Join(".", "Computer Shop POS")
+		return filepath.Join(".", "Universal Repair POS")
 	}
 	if runtime.GOOS == "windows" {
 		if profile := os.Getenv("USERPROFILE"); profile != "" {
-			return filepath.Join(profile, "Documents", "Computer Shop POS")
+			return preferredDataDir(filepath.Join(profile, "Documents"))
 		}
 	}
-	return filepath.Join(home, "Documents", "Computer Shop POS")
+	return preferredDataDir(filepath.Join(home, "Documents"))
+}
+
+func preferredDataDir(documentsDir string) string {
+	current := filepath.Join(documentsDir, "Universal Repair POS")
+	legacy := filepath.Join(documentsDir, "Computer Shop POS")
+	if _, err := os.Stat(current); err == nil {
+		return current
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		if renameErr := os.Rename(legacy, current); renameErr == nil {
+			return current
+		}
+		return legacy
+	}
+	return current
 }
 
 func IsConnectionError(err error) bool {

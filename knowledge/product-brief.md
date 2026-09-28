@@ -2,9 +2,9 @@
 
 ## Vision
 
-Create a simple, owner-friendly system for selling computer parts and recording computer repair/service work. It should combine POS checkout, work-order tracking, inventory, cost and profit visibility, reporting, and printable invoices.
+Create a simple, owner-friendly system for selling products and recording repair/service work. It should combine POS checkout, work-order tracking, inventory, cost and profit visibility, reporting, and printable invoices.
 
-The architecture should later support other small businesses without making the computer-shop V1 vague or over-generalized.
+The product is named **Universal Repair POS** and supports different repair-and-retail businesses. Computer products and services remain the first thoroughly tested catalog workflow.
 
 ## Confirmed V1 users
 
@@ -26,7 +26,7 @@ The architecture should later support other small businesses without making the 
 
 ## Product principles
 
-- No restaurant terminology in the primary computer-shop experience.
+- No restaurant terminology or single-industry product branding in the primary experience.
 - Products may track stock; services normally do not.
 - Duration is optional and supports minutes, hours, or days in the interface.
 - Inventory movements must be auditable rather than silently overwriting stock.
@@ -36,7 +36,6 @@ The architecture should later support other small businesses without making the 
 
 ## Open decisions
 
-- Final shop/product brand name.
 - Default currency and tax rules.
 - Whether customer devices need serial number, password/PIN handling, accessories received, and condition photos in the first repair release.
 - Whether one installation will host multiple businesses or each business will run a separate installation. V1 assumes a single business per installation while keeping future multi-business support possible.

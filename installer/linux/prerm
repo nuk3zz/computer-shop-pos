@@ -2,5 +2,5 @@
 set -e
 
 if [ "${1:-}" = remove ]; then
-  systemctl disable --now computer-shop-pos.service >/dev/null 2>&1 || true
+  systemctl disable --now universal-repair-pos.service >/dev/null 2>&1 || true
 fi

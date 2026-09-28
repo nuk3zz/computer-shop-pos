@@ -1,10 +1,10 @@
-# Computer Shop POS - AI Development Instructions
+# Universal Repair POS - AI Development Instructions
 
 ## Product direction
 
-This fork is a brand-neutral point-of-sale and work-order system. The first supported business is a computer sales and repair shop. Keep the domain model reusable enough for another repair or craft business later, but do not add those business-specific workflows until requested.
+This fork is a brand-neutral point-of-sale and work-order system for repair-and-retail businesses. Computer sales and repair remain the first fully tested workflow, while the domain model and product language must stay reusable for phone, electronics, appliance, craft, and other service businesses.
 
-The temporary product name is **Computer Shop POS**. Do not invent a shop or customer-facing brand name. Business identity, currency, tax, invoice text, and workflow labels must be configurable rather than hard-coded.
+The product name is **Universal Repair POS**. Do not use the name of one shop category as product branding. Each installation's business identity, currency, tax, invoice text, and workflow labels must be configurable rather than hard-coded.
 
 ## Required knowledge architecture
 

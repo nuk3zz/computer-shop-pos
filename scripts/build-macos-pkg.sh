@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:-dev}"
-BINARY="${2:-$ROOT_DIR/dist-native/computer-shop-pos}"
+BINARY="${2:-$ROOT_DIR/dist-native/universal-repair-pos}"
 OUTPUT_DIR="${3:-$ROOT_DIR/dist-native}"
 PACKAGE_VERSION="${VERSION#v}"
 PACKAGE_ROOT="$(mktemp -d)"
@@ -19,17 +19,18 @@ if [[ ! -x "$BINARY" ]]; then
 fi
 
 install -d "$PACKAGE_ROOT/usr/local/bin" "$PACKAGE_ROOT/Library/LaunchAgents" "$OUTPUT_DIR"
-install -m 0755 "$BINARY" "$PACKAGE_ROOT/usr/local/bin/computer-shop-pos"
-install -m 0644 "$ROOT_DIR/installer/macos/io.github.computer-shop-pos.plist" "$PACKAGE_ROOT/Library/LaunchAgents/io.github.computer-shop-pos.plist"
+install -m 0755 "$BINARY" "$PACKAGE_ROOT/usr/local/bin/universal-repair-pos"
+install -m 0644 "$ROOT_DIR/installer/macos/io.github.universal-repair-pos.plist" "$PACKAGE_ROOT/Library/LaunchAgents/io.github.universal-repair-pos.plist"
 chmod +x "$ROOT_DIR/installer/macos/scripts/postinstall"
 xattr -cr "$PACKAGE_ROOT"
+find "$PACKAGE_ROOT" -name '._*' -delete
 
 COPYFILE_DISABLE=1 pkgbuild \
   --root "$PACKAGE_ROOT" \
   --scripts "$ROOT_DIR/installer/macos/scripts" \
-  --identifier "io.github.computer-shop-pos" \
+  --identifier "io.github.universal-repair-pos" \
   --version "$PACKAGE_VERSION" \
   --install-location / \
-  "$OUTPUT_DIR/Computer-Shop-POS-$VERSION-macOS-Universal.pkg"
+  "$OUTPUT_DIR/Universal-Repair-POS-$VERSION-macOS-Universal.pkg"
 
-echo "Built $OUTPUT_DIR/Computer-Shop-POS-$VERSION-macOS-Universal.pkg"
+echo "Built $OUTPUT_DIR/Universal-Repair-POS-$VERSION-macOS-Universal.pkg"

@@ -59,7 +59,7 @@ func TestStartFreshClearsBusinessDataAndKeepsOwner(t *testing.T) {
 	if err := db.QueryRow(`SELECT company_name, setup_completed FROM shop_profile WHERE id = 1`).Scan(&companyName, &setupCompleted); err != nil {
 		t.Fatal(err)
 	}
-	if categories != 0 || users != 1 || companyName != "Computer Shop POS" || setupCompleted {
+	if categories != 0 || users != 1 || companyName != "Universal Repair POS" || setupCompleted {
 		t.Fatalf("unexpected reset result: categories=%d users=%d company=%q setup=%v", categories, users, companyName, setupCompleted)
 	}
 }

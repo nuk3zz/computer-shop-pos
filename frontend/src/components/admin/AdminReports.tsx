@@ -69,7 +69,7 @@ export function AdminReports() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
           <p className="text-muted-foreground">
-            Sales, service, and revenue insights for your computer shop
+            Sales, service, and revenue insights for your business
           </p>
         </div>
         <div className="flex gap-2">

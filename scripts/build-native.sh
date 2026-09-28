@@ -38,7 +38,7 @@ fi
 
 (
   cd "$ROOT_DIR/backend"
-  CGO_ENABLED=0 GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" go build -trimpath -ldflags "$GO_LDFLAGS" -o "$OUTPUT_DIR/computer-shop-pos$EXTENSION" .
+  CGO_ENABLED=0 GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" go build -trimpath -ldflags "$GO_LDFLAGS" -o "$OUTPUT_DIR/universal-repair-pos$EXTENSION" .
 )
 
-echo "Built $OUTPUT_DIR/computer-shop-pos$EXTENSION"
+echo "Built $OUTPUT_DIR/universal-repair-pos$EXTENSION"

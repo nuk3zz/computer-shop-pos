@@ -80,7 +80,7 @@ function LoginPage() {
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
               <Store className="w-7 h-7" />
             </div>
-            <h1 className="text-3xl font-bold">Computer Shop POS</h1>
+            <h1 className="text-3xl font-bold">Universal Repair POS</h1>
           </div>
           
           <h2 className="text-4xl font-bold mb-6 leading-tight">
@@ -138,7 +138,7 @@ function LoginPage() {
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
                 <Store className="w-8 h-8 text-white" />
               </div>
-              <CardTitle className="text-2xl font-bold">Computer Shop POS</CardTitle>
+              <CardTitle className="text-2xl font-bold">Universal Repair POS</CardTitle>
               <CardDescription className="text-base">
                 Sign in with your staff account
               </CardDescription>
