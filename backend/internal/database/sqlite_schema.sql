@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
+    profile_image_url TEXT,
     role TEXT NOT NULL CHECK (role IN ('admin', 'manager', 'sales', 'technician')),
     is_active BOOLEAN NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS product_images (
 CREATE TABLE IF NOT EXISTS shop_profile (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     company_name TEXT NOT NULL DEFAULT 'Computer Shop POS',
+    description TEXT NOT NULL DEFAULT 'Sales and repair management',
     logo_url TEXT,
     setup_completed BOOLEAN NOT NULL DEFAULT 0,
     network_mode TEXT NOT NULL DEFAULT 'local' CHECK (network_mode IN ('local', 'lan')),

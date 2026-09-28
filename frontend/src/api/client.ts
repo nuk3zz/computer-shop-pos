@@ -108,6 +108,10 @@ class APIClient {
     });
   }
 
+  async updateCurrentUser(profile: Pick<User, 'first_name' | 'last_name' | 'username' | 'email'> & { profile_image_url?: string }): Promise<APIResponse<User>> {
+    return this.request({ method: 'PUT', url: '/auth/profile', data: profile });
+  }
+
   // Product endpoints
   async getProducts(filters?: ProductFilters): Promise<PaginatedResponse<Product[]>> {
     return this.request({
@@ -304,7 +308,7 @@ class APIClient {
     return this.request({ method: 'GET', url: '/shop-profile' });
   }
 
-  async updateShopProfile(profile: { company_name: string; logo_url?: string }): Promise<APIResponse<ShopProfile>> {
+  async updateShopProfile(profile: { company_name: string; description: string; logo_url?: string }): Promise<APIResponse<ShopProfile>> {
     return this.request({ method: 'PUT', url: '/admin/shop-profile', data: profile });
   }
 
@@ -360,6 +364,10 @@ class APIClient {
 
   async checkForUpdates(): Promise<APIResponse<UpdateInfo>> {
     return this.request({ method: 'GET', url: '/admin/system/updates' });
+  }
+
+  async startFresh(confirmation: string): Promise<APIResponse> {
+    return this.request({ method: 'POST', url: '/admin/system/start-fresh', data: { confirmation } });
   }
 
   // Admin-specific category management  

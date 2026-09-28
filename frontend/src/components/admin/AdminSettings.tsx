@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { Bell, DollarSign, Globe, MessageCircle, Printer, RotateCcw, Save } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bell, DollarSign, Globe, ImagePlus, MessageCircle, Printer, RotateCcw, Save, Trash2 } from 'lucide-react'
+import apiClient from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -7,16 +9,50 @@ import { Textarea } from '@/components/ui/textarea'
 import { defaultShopSettings, loadShopSettings, saveShopSettings } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
 import { SystemMaintenance } from '@/components/admin/SystemMaintenance'
+import { getMediaUrl } from '@/lib/media'
 
 export function AdminSettings() {
   const [settings, setSettings] = useState(loadShopSettings)
+	const [companyName, setCompanyName] = useState('')
+	const [description, setDescription] = useState('')
+	const [logoURL, setLogoURL] = useState<string | undefined>()
+	const [logoFile, setLogoFile] = useState<File | null>(null)
+	const [logoPreview, setLogoPreview] = useState('')
+	const queryClient = useQueryClient()
+	const { data: profile } = useQuery({
+		queryKey: ['shop-profile'],
+		queryFn: () => apiClient.getShopProfile().then((response) => response.data),
+	})
+
+	useEffect(() => {
+		if (!profile) return
+		setCompanyName(profile.company_name)
+		setDescription(profile.description || '')
+		setLogoURL(profile.logo_url)
+	}, [profile])
 
   const update = (field: keyof typeof settings, value: string) => setSettings((current) => ({ ...current, [field]: value }))
 
-  const handleSave = () => {
-    saveShopSettings(settings)
-    toastHelpers.apiSuccess('Settings', 'Shop preferences saved on this device')
-  }
+	const save = useMutation({
+		mutationFn: async () => {
+			let nextLogoURL = logoURL
+			if (logoFile) nextLogoURL = (await apiClient.uploadProductImage(logoFile)).data?.url
+			return apiClient.updateShopProfile({ company_name: companyName.trim(), description: description.trim(), logo_url: nextLogoURL })
+		},
+		onSuccess: (response) => {
+			saveShopSettings({ ...settings, shop_name: companyName.trim() })
+			if (response.data) queryClient.setQueryData(['shop-profile'], response.data)
+			setLogoFile(null)
+			setLogoPreview('')
+			toastHelpers.apiSuccess('Settings', 'Shop identity and preferences saved')
+		},
+		onError: (error) => toastHelpers.apiError('Save settings', error),
+	})
+
+	const handleSave = () => {
+		if (!companyName.trim()) return toastHelpers.apiError('Save settings', new Error('Shop name is required'))
+		save.mutate()
+	}
 
   const handleReset = () => setSettings(defaultShopSettings)
 
@@ -29,7 +65,7 @@ export function AdminSettings() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleReset}><RotateCcw className="mr-2 h-4 w-4" />Reset</Button>
-          <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Save changes</Button>
+          <Button onClick={handleSave} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? 'Saving…' : 'Save changes'}</Button>
         </div>
       </div>
 
@@ -37,7 +73,14 @@ export function AdminSettings() {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5" />Shop Information</CardTitle><CardDescription>The final business name can be changed later.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            <Field label="Shop Name"><Input value={settings.shop_name} onChange={(event) => update('shop_name', event.target.value)} /></Field>
+            <Field label="Shop Name"><Input value={companyName} onChange={(event) => setCompanyName(event.target.value)} maxLength={150} /></Field>
+			<Field label="Sidebar Description"><Input value={description} onChange={(event) => setDescription(event.target.value)} maxLength={200} placeholder="Sales and repair management" /></Field>
+			<Field label="Shop Logo">
+				<div className="flex items-center gap-3">
+					<div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">{logoPreview || logoURL ? <img src={logoPreview || getMediaUrl(logoURL)} alt="Logo preview" className="h-full w-full object-contain" /> : <ImagePlus className="h-6 w-6 text-muted-foreground" />}</div>
+					<div className="min-w-0 flex-1 space-y-2"><Input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; setLogoFile(file); setLogoPreview(URL.createObjectURL(file)) }} />{(logoURL || logoPreview) && <Button type="button" size="sm" variant="outline" onClick={() => { setLogoURL(undefined); setLogoFile(null); setLogoPreview('') }}><Trash2 className="mr-1.5 h-3.5 w-3.5" />Remove</Button>}</div>
+				</div>
+			</Field>
             <Field label="Language"><select className="w-full rounded-md border border-input bg-background p-2" value={settings.language} onChange={(event) => update('language', event.target.value)}><option value="en">English</option></select></Field>
           </CardContent>
         </Card>

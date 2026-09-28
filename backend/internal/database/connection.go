@@ -83,9 +83,56 @@ func connectSQLite(dataDir string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("initialize SQLite database: %w", err)
 	}
+	if err := applySQLiteCompatibilityMigrations(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate SQLite database: %w", err)
+	}
 	sqliteConnections.Store(db, databasePath)
 	log.Printf("SQLite database ready at %s", databasePath)
 	return db, nil
+}
+
+func applySQLiteCompatibilityMigrations(db *sql.DB) error {
+	columns := []struct {
+		table, column, definition string
+	}{
+		{"users", "profile_image_url", "TEXT"},
+		{"shop_profile", "description", "TEXT NOT NULL DEFAULT 'Sales and repair management'"},
+	}
+	for _, migration := range columns {
+		exists, err := sqliteColumnExists(db, migration.table, migration.column)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", migration.table, migration.column, migration.definition)); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (2)`)
+	return err
+}
+
+func sqliteColumnExists(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, dataType string
+		var notNull, primaryKey int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 func IsSQLite(db *sql.DB) bool {

@@ -27,7 +27,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	imageUploadHandler := handlers.NewImageUploadHandler(uploadDir)
 	shopProfileHandler := handlers.NewShopProfileHandler(db)
 	initialSetupHandler := handlers.NewInitialSetupHandler(db, imageUploadHandler)
-	maintenanceHandler := handlers.NewMaintenanceHandler(db, dataDir, appVersion)
+	maintenanceHandler := handlers.NewMaintenanceHandler(db, dataDir, uploadDir, appVersion)
 
 	// Public routes (no authentication required)
 	public := router.Group("/")
@@ -46,6 +46,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	{
 		// Authentication routes
 		protected.GET("/auth/me", authHandler.GetCurrentUser)
+		protected.PUT("/auth/profile", authHandler.UpdateProfile)
 
 		// Product routes
 		protected.GET("/products", productHandler.GetProducts)
@@ -98,6 +99,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.POST("/system/backups/upload", maintenanceHandler.UploadBackup)
 		admin.POST("/system/restore", maintenanceHandler.StageRestore)
 		admin.GET("/system/updates", maintenanceHandler.CheckUpdates)
+		admin.POST("/system/start-fresh", maintenanceHandler.StartFresh)
 		admin.POST("/customers", customerHandler.CreateCustomer)
 		admin.PUT("/customers/:id", customerHandler.UpdateCustomer)
 

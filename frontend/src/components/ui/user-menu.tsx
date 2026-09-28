@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import apiClient from "@/api/client"
 import type { User as UserType } from "@/types"
+import { getMediaUrl } from "@/lib/media"
 
 interface UserMenuProps {
   user: UserType
@@ -19,6 +20,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ user, collapsed = false, size = "md" }: UserMenuProps) {
+  const goTo = (path: string) => { window.location.href = path }
   const handleLogout = () => {
     apiClient.clearAuth()
     window.location.href = '/login'
@@ -49,15 +51,16 @@ export function UserMenu({ user, collapsed = false, size = "md" }: UserMenuProps
   }
 
   const currentSize = sizeClasses[size]
+  const avatar = user.profile_image_url
+    ? <img src={getMediaUrl(user.profile_image_url)} alt="" className={`${currentSize.avatar} rounded-full object-cover`} />
+    : null
 
   if (collapsed) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-auto p-1.5 rounded-full">
-            <div className={`bg-primary rounded-full flex items-center justify-center ${currentSize.avatar}`}>
-              <User className={`text-primary-foreground ${currentSize.icon}`} />
-            </div>
+            {avatar || <div className={`bg-primary rounded-full flex items-center justify-center ${currentSize.avatar}`}><User className={`text-primary-foreground ${currentSize.icon}`} /></div>}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" side="right" className="w-56">
@@ -68,15 +71,15 @@ export function UserMenu({ user, collapsed = false, size = "md" }: UserMenuProps
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => goTo('/admin/profile')}>
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => goTo('/admin/settings')}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => goTo('/admin/settings')}>
             <Bell className="mr-2 h-4 w-4" />
             <span>Notifications</span>
           </DropdownMenuItem>
@@ -95,9 +98,7 @@ export function UserMenu({ user, collapsed = false, size = "md" }: UserMenuProps
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="w-full justify-start p-3 h-auto bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
           <div className="flex items-center gap-3 w-full">
-            <div className={`bg-primary rounded-full flex items-center justify-center ${currentSize.avatar}`}>
-              <User className={`text-primary-foreground ${currentSize.icon}`} />
-            </div>
+            {avatar || <div className={`bg-primary rounded-full flex items-center justify-center ${currentSize.avatar}`}><User className={`text-primary-foreground ${currentSize.icon}`} /></div>}
             <div className="flex-1 min-w-0 text-left">
               <p className={`font-medium truncate ${currentSize.name}`}>
                 {user.first_name} {user.last_name}
@@ -120,15 +121,15 @@ export function UserMenu({ user, collapsed = false, size = "md" }: UserMenuProps
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => goTo('/admin/profile')}>
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => goTo('/admin/settings')}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => goTo('/admin/settings')}>
           <Bell className="mr-2 h-4 w-4" />
           <span>Notifications</span>
         </DropdownMenuItem>

@@ -189,3 +189,11 @@
 ### Recovery point
 
 - The pre-migration live Docker database and uploads are available at `backups/self-host/*20260928-032026*`.
+
+## 2026-09-28 - Persistent identity, owner profile, and guarded fresh start
+
+- The sidebar read `shop_profile` while Settings wrote the shop name only to browser storage, so a successful-looking save could never update the visible identity. Shop name, logo, and sidebar description now share the server profile and React Query cache.
+- Account-menu items without navigation silently looked broken. The Profile item now opens a real authenticated editor, and saving replaces both the server row and cached `pos_user` value so the sidebar refreshes immediately.
+- Existing native SQLite databases need explicit `PRAGMA table_info` checks before additive `ALTER TABLE` statements; changing only `CREATE TABLE IF NOT EXISTS` does not upgrade installed databases.
+- Destructive reset is safest as one transaction with dependency-ordered deletes. The owner account, network/backup preferences, and backup archives remain outside the reset boundary, while standalone mode creates a verified safety backup before deletion.
+- The legacy `scripts/backup.sh` assumes a `postgres` database role and failed against the hardened `pos_app` deployment. The active `pos-backup` container script produced the verified pre-deployment recovery point instead.

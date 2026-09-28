@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"pos-backend/internal/middleware"
 	"pos-backend/internal/models"
 	possystem "pos-backend/internal/system"
 
@@ -18,13 +20,14 @@ import (
 )
 
 type MaintenanceHandler struct {
-	db      *sql.DB
-	manager *possystem.Manager
-	version string
+	db        *sql.DB
+	manager   *possystem.Manager
+	version   string
+	uploadDir string
 }
 
-func NewMaintenanceHandler(db *sql.DB, dataDir, version string) *MaintenanceHandler {
-	return &MaintenanceHandler{db: db, manager: possystem.NewManager(db, dataDir), version: version}
+func NewMaintenanceHandler(db *sql.DB, dataDir, uploadDir, version string) *MaintenanceHandler {
+	return &MaintenanceHandler{db: db, manager: possystem.NewManager(db, dataDir), version: version, uploadDir: uploadDir}
 }
 
 func (h *MaintenanceHandler) Info(c *gin.Context) {
@@ -160,6 +163,72 @@ func (h *MaintenanceHandler) CheckUpdates(c *gin.Context) {
 		"current_version": h.version, "latest_version": release.TagName, "update_available": available,
 		"release_name": release.Name, "release_url": release.HTMLURL,
 	}})
+}
+
+// StartFresh clears business records and identity while preserving the current
+// owner account, server preferences, and backup archives.
+func (h *MaintenanceHandler) StartFresh(c *gin.Context) {
+	userID, _, role, ok := middleware.GetUserFromContext(c)
+	if !ok || role != "admin" {
+		c.JSON(http.StatusForbidden, models.APIResponse{Success: false, Message: "Only the owner administrator can start fresh"})
+		return
+	}
+	var req struct {
+		Confirmation string `json:"confirmation" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Confirmation != "START FRESH" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Type START FRESH exactly to confirm"})
+		return
+	}
+	if h.manager.Supported() {
+		if _, err := h.manager.CreateBackup("manual", h.version); err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "A safety backup could not be created, so no data was deleted", Error: stringPtr(err.Error())})
+			return
+		}
+	}
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not begin fresh start"})
+		return
+	}
+	defer tx.Rollback()
+	statements := []string{
+		"DELETE FROM payments", "DELETE FROM order_status_history", "DELETE FROM order_items", "DELETE FROM orders",
+		"DELETE FROM inventory", "DELETE FROM product_images", "DELETE FROM products", "DELETE FROM customers",
+		"DELETE FROM categories", "DELETE FROM dining_tables",
+	}
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement); err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Fresh start failed; no database changes were applied", Error: stringPtr(err.Error())})
+			return
+		}
+	}
+	if _, err := tx.Exec("DELETE FROM users WHERE id <> $1", userID); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not clear staff accounts", Error: stringPtr(err.Error())})
+		return
+	}
+	if _, err := tx.Exec("UPDATE users SET role = 'admin', is_active = true, profile_image_url = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1", userID); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not preserve the owner account", Error: stringPtr(err.Error())})
+		return
+	}
+	if _, err := tx.Exec(`UPDATE shop_profile SET company_name = 'Computer Shop POS', description = 'Sales and repair management',
+		logo_url = NULL, setup_completed = false, updated_at = CURRENT_TIMESTAMP WHERE id = 1`); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not reset shop identity", Error: stringPtr(err.Error())})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Could not finish fresh start", Error: stringPtr(err.Error())})
+		return
+	}
+	if h.uploadDir != "" {
+		entries, _ := os.ReadDir(h.uploadDir)
+		for _, entry := range entries {
+			_ = os.RemoveAll(filepath.Join(h.uploadDir, entry.Name()))
+		}
+		_ = os.MkdirAll(h.uploadDir, 0o755)
+	}
+	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "Business data cleared. Continue through setup to enter your real shop details."})
 }
 
 func localIPv4Addresses() []string {

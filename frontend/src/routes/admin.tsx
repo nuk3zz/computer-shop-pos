@@ -31,6 +31,12 @@ function AdminLayout() {
     setIsLoading(false)
   }, [])
 
+  useEffect(() => {
+    const refreshUser = (event: Event) => setUser((event as CustomEvent<User>).detail)
+    window.addEventListener('user-profile-changed', refreshUser)
+    return () => window.removeEventListener('user-profile-changed', refreshUser)
+  }, [])
+
   const { data: shopProfile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['shop-profile'],
     queryFn: async () => {

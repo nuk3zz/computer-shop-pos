@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, CheckCircle2, Download, ExternalLink, HardDrive, Network, RefreshCw, RotateCcw, Upload } from 'lucide-react'
+import { AlertTriangle, Archive, CheckCircle2, Download, ExternalLink, HardDrive, Network, RefreshCw, RotateCcw, Trash2, Upload } from 'lucide-react'
 import apiClient from '@/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { toastHelpers } from '@/lib/toast-helpers'
+import { defaultShopSettings, saveShopSettings } from '@/lib/shop-settings'
 
 export function SystemMaintenance() {
   const queryClient = useQueryClient()
   const [networkMode, setNetworkMode] = useState<'local' | 'lan'>('local')
   const [autoBackup, setAutoBackup] = useState(true)
   const [backupTime, setBackupTime] = useState('02:30')
+	const [showFreshStart, setShowFreshStart] = useState(false)
+	const [freshStartConfirmation, setFreshStartConfirmation] = useState('')
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
@@ -69,6 +72,15 @@ export function SystemMaintenance() {
     },
     onError: (error) => toastHelpers.apiError('Check for updates', error),
   })
+	const startFresh = useMutation({
+		mutationFn: () => apiClient.startFresh(freshStartConfirmation),
+		onSuccess: () => {
+			saveShopSettings(defaultShopSettings)
+			queryClient.clear()
+			window.location.href = '/setup'
+		},
+		onError: (error) => toastHelpers.apiError('Start fresh', error),
+	})
 
   const confirmRestore = (name: string) => {
     if (window.confirm(`Restore ${name}? A safety backup will be created first. The POS service must then be restarted.`)) {
@@ -114,6 +126,14 @@ export function SystemMaintenance() {
           {checkUpdates.data?.data?.update_available && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm"><div className="flex items-center gap-2 font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" />{checkUpdates.data.data.latest_version} is available</div>{checkUpdates.data.data.release_url && <a href={checkUpdates.data.data.release_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center text-emerald-800 underline">Open installer download <ExternalLink className="ml-1 h-3.5 w-3.5" /></a>}</div>}
         </CardContent>
       </Card>
+
+		<Card className="border-red-200">
+			<CardHeader><CardTitle className="flex items-center gap-2 text-red-700"><AlertTriangle className="h-5 w-5" />Start Fresh</CardTitle><CardDescription>Remove test data and return to first-time setup. Your current owner login, server settings, and existing backups are retained.</CardDescription></CardHeader>
+			<CardContent className="space-y-4">
+				<div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">This permanently removes products, categories, stock, sales, repair tickets, clients, staff accounts, and uploaded photos. A safety backup is created automatically in the standalone edition.</div>
+				{showFreshStart ? <div className="max-w-md space-y-3"><label className="block text-sm font-medium">Type <span className="font-mono">START FRESH</span> to confirm</label><Input value={freshStartConfirmation} onChange={(event) => setFreshStartConfirmation(event.target.value)} autoComplete="off" /><div className="flex gap-2"><Button variant="destructive" disabled={freshStartConfirmation !== 'START FRESH' || startFresh.isPending} onClick={() => startFresh.mutate()}><Trash2 className="mr-2 h-4 w-4" />{startFresh.isPending ? 'Clearing…' : 'Delete data and start fresh'}</Button><Button variant="outline" onClick={() => { setShowFreshStart(false); setFreshStartConfirmation('') }}>Cancel</Button></div></div> : <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => setShowFreshStart(true)}><Trash2 className="mr-2 h-4 w-4" />Start Fresh…</Button>}
+			</CardContent>
+		</Card>
     </div>
   )
 }

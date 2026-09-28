@@ -27,6 +27,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
+  profile_image_url?: string;
   role: 'admin' | 'manager' | 'sales' | 'technician';
   is_active: boolean;
   created_at: string;
@@ -59,6 +60,7 @@ export interface Category {
 export interface ShopProfile {
   id: number;
   company_name: string;
+  description: string;
   logo_url?: string;
   setup_completed: boolean;
   network_mode: 'local' | 'lan';

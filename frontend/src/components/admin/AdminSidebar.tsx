@@ -137,7 +137,7 @@ export function AdminSidebar({ user, shopProfile }: AdminSidebarProps) {
                 )}
                 <div>
                   <h1 className="max-w-40 truncate font-bold text-foreground">{shopProfile?.company_name || 'Computer Shop POS'}</h1>
-                  <p className="text-xs text-muted-foreground">Sales and repair management</p>
+                  <p className="max-w-40 truncate text-xs text-muted-foreground">{shopProfile?.description || 'Sales and repair management'}</p>
                 </div>
               </div>
             )}
@@ -184,7 +184,7 @@ export function AdminSidebar({ user, shopProfile }: AdminSidebarProps) {
 
         {/* User Menu */}
         <div className="p-4 border-t border-border">
-          <UserMenu 
+          <UserMenu
             user={user} 
             collapsed={sidebarCollapsed && !isMobile && !isTablet}
             size={isTablet ? 'lg' : 'md'}

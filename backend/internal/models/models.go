@@ -8,16 +8,17 @@ import (
 
 // User represents a system user/staff member
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // Don't expose password hash in JSON
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	Role         string    `json:"role"` // admin, manager, sales, technician
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID              uuid.UUID `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	PasswordHash    string    `json:"-"` // Don't expose password hash in JSON
+	FirstName       string    `json:"first_name"`
+	LastName        string    `json:"last_name"`
+	ProfileImageURL *string   `json:"profile_image_url"`
+	Role            string    `json:"role"` // admin, manager, sales, technician
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // Category represents a product category
@@ -58,6 +59,7 @@ type Product struct {
 type ShopProfile struct {
 	ID             int16     `json:"id"`
 	CompanyName    string    `json:"company_name"`
+	Description    string    `json:"description"`
 	LogoURL        *string   `json:"logo_url"`
 	SetupCompleted bool      `json:"setup_completed"`
 	NetworkMode    string    `json:"network_mode"`

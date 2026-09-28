@@ -11,6 +11,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
+    profile_image_url VARCHAR(500),
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'manager', 'sales', 'technician')),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -65,6 +66,7 @@ CREATE INDEX idx_product_images_product_id ON product_images(product_id);
 CREATE TABLE shop_profile (
     id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     company_name VARCHAR(150) NOT NULL DEFAULT 'Computer Shop POS',
+    description VARCHAR(200) NOT NULL DEFAULT 'Sales and repair management',
     logo_url VARCHAR(500),
     setup_completed BOOLEAN NOT NULL DEFAULT false,
     network_mode VARCHAR(10) NOT NULL DEFAULT 'local' CHECK (network_mode IN ('local', 'lan')),

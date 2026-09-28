@@ -25,9 +25,9 @@ func NewShopProfileHandler(db *sql.DB) *ShopProfileHandler {
 func (h *ShopProfileHandler) Get(c *gin.Context) {
 	var profile models.ShopProfile
 	err := h.db.QueryRow(`
-		SELECT id, company_name, logo_url, setup_completed, network_mode, auto_backup, backup_time, created_at, updated_at
+		SELECT id, company_name, description, logo_url, setup_completed, network_mode, auto_backup, backup_time, created_at, updated_at
 		FROM shop_profile WHERE id = 1
-	`).Scan(&profile.ID, &profile.CompanyName, &profile.LogoURL, &profile.SetupCompleted, &profile.NetworkMode, &profile.AutoBackup, &profile.BackupTime, &profile.CreatedAt, &profile.UpdatedAt)
+	`).Scan(&profile.ID, &profile.CompanyName, &profile.Description, &profile.LogoURL, &profile.SetupCompleted, &profile.NetworkMode, &profile.AutoBackup, &profile.BackupTime, &profile.CreatedAt, &profile.UpdatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to load shop profile", Error: stringPtr(err.Error())})
 		return
@@ -38,6 +38,7 @@ func (h *ShopProfileHandler) Get(c *gin.Context) {
 func (h *ShopProfileHandler) Update(c *gin.Context) {
 	var req struct {
 		CompanyName string  `json:"company_name" binding:"required"`
+		Description string  `json:"description"`
 		LogoURL     *string `json:"logo_url"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -45,8 +46,13 @@ func (h *ShopProfileHandler) Update(c *gin.Context) {
 		return
 	}
 	req.CompanyName = strings.TrimSpace(req.CompanyName)
+	req.Description = strings.TrimSpace(req.Description)
 	if req.CompanyName == "" || len(req.CompanyName) > 150 {
 		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Company name must be between 1 and 150 characters"})
+		return
+	}
+	if len(req.Description) > 200 {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Shop description cannot exceed 200 characters"})
 		return
 	}
 	if req.LogoURL != nil && strings.TrimSpace(*req.LogoURL) == "" {
@@ -56,10 +62,10 @@ func (h *ShopProfileHandler) Update(c *gin.Context) {
 	var profile models.ShopProfile
 	err := h.db.QueryRow(`
 		UPDATE shop_profile
-		SET company_name = $1, logo_url = $2, setup_completed = true, updated_at = CURRENT_TIMESTAMP
+		SET company_name = $1, description = $2, logo_url = $3, setup_completed = true, updated_at = CURRENT_TIMESTAMP
 		WHERE id = 1
-		RETURNING id, company_name, logo_url, setup_completed, network_mode, auto_backup, backup_time, created_at, updated_at
-	`, req.CompanyName, req.LogoURL).Scan(&profile.ID, &profile.CompanyName, &profile.LogoURL, &profile.SetupCompleted, &profile.NetworkMode, &profile.AutoBackup, &profile.BackupTime, &profile.CreatedAt, &profile.UpdatedAt)
+		RETURNING id, company_name, description, logo_url, setup_completed, network_mode, auto_backup, backup_time, created_at, updated_at
+	`, req.CompanyName, req.Description, req.LogoURL).Scan(&profile.ID, &profile.CompanyName, &profile.Description, &profile.LogoURL, &profile.SetupCompleted, &profile.NetworkMode, &profile.AutoBackup, &profile.BackupTime, &profile.CreatedAt, &profile.UpdatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to save shop profile", Error: stringPtr(err.Error())})
 		return
@@ -82,9 +88,9 @@ func NewInitialSetupHandler(db *sql.DB, uploadHandler *ImageUploadHandler) *Init
 func (h *InitialSetupHandler) Status(c *gin.Context) {
 	var profile models.ShopProfile
 	err := h.db.QueryRow(`
-		SELECT id, company_name, logo_url, setup_completed, network_mode, auto_backup, backup_time, created_at, updated_at
+		SELECT id, company_name, description, logo_url, setup_completed, network_mode, auto_backup, backup_time, created_at, updated_at
 		FROM shop_profile WHERE id = 1
-	`).Scan(&profile.ID, &profile.CompanyName, &profile.LogoURL, &profile.SetupCompleted, &profile.NetworkMode, &profile.AutoBackup, &profile.BackupTime, &profile.CreatedAt, &profile.UpdatedAt)
+	`).Scan(&profile.ID, &profile.CompanyName, &profile.Description, &profile.LogoURL, &profile.SetupCompleted, &profile.NetworkMode, &profile.AutoBackup, &profile.BackupTime, &profile.CreatedAt, &profile.UpdatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to load setup status", Error: stringPtr(err.Error())})
 		return
