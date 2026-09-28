@@ -35,6 +35,7 @@ The temporary product name is **Computer Shop POS**. Do not invent a shop or cus
 - Workflows: store stable status keys separately from editable display labels. Business owners may rename labels, but code must not depend on display text.
 - Invoices: keep presentation configurable and separate from transaction records.
 - Security: never commit secrets. Demo credentials must be clearly marked and unsuitable for production.
+- Privacy: treat the repository as public. Never publish owner-specific device names, personal example usernames, absolute user paths, private network addresses, or other deployment details; use generic product terminology.
 
 ## Verification protocol
 

@@ -26,9 +26,9 @@ The confirmed scope and staged implementation plan are in the [product brief](kn
 
 The active navigation and workflows no longer expose restaurant tables, servers, kitchen screens, or food demo data. Legacy database compatibility structures remain internal while later inventory and invoice work continues.
 
-## Mac Mini self-hosting
+## Docker self-hosting
 
-The production stack is available on the Mac Mini at `http://localhost:3000` and to trusted local-network devices at `http://<mac-mini-ip>:3000`. Only the web entry point is exposed; PostgreSQL and the backend API stay private inside Docker.
+The Docker stack is available on its host at `http://localhost:3000` and can be made available to trusted devices on the same local network at `http://<server-ip>:3000`. Only the web entry point is exposed; PostgreSQL and the backend API stay private inside Docker.
 
 See the [self-hosting guide](knowledge/self-hosting.md) for startup, backup, and safety details.
 

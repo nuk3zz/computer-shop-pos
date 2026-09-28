@@ -44,16 +44,16 @@
 - The full `npm run type-check` now gets past the inherited broken TypeScript project-reference configuration but reports many existing application errors across restaurant-era screens.
 - `npm ci` reports 50 dependency advisories, including two critical advisories. Dependency upgrades need a separate compatibility-tested security pass.
 
-## 2026-09-27 - Mac Mini self-hosting
+## 2026-09-27 - Docker self-hosting
 
 ### Worked
 
-- Installed and started Docker Desktop on the Apple Silicon Mac Mini, then runtime-tested the complete frontend, backend, and PostgreSQL stack.
+- Installed and started Docker Desktop on the local server, then runtime-tested the complete frontend, backend, and PostgreSQL stack.
 - Changed browser API and image URLs to same-origin paths so other devices on the LAN do not incorrectly call their own `localhost`.
 - Published only the Nginx frontend on port 3000; the Go API and PostgreSQL stay private inside the Compose network.
 - Added persistent image storage, randomized database/JWT secrets, an owner-only administrator credential file, and automatic disabling of inherited demo accounts.
 - Removed public demo passwords and restaurant branding from the login screen.
-- Added login-time Docker startup and a containerized daily 02:30 Sri Lanka-time database/uploads backup job with checksums and 14-day local retention.
+- Added login-time Docker startup and a containerized scheduled database/uploads backup job with checksums and 14-day local retention.
 - Added Docker build ignore files; frontend build context dropped from about 369 MB to about 16 KB.
 - Upgraded the frontend build image from Node 18 to Node 22 because an installed dependency requires Node 20.18.1 or newer.
 
@@ -65,7 +65,7 @@
 
 ### Operational limits
 
-- The current LAN address can change unless the router reserves an address for the Mac Mini's Ethernet adapter.
+- The current LAN address can change unless the router reserves an address for the server's network adapter.
 - Backups stored on the same Mac protect against application mistakes, not disk loss or theft; real shop use requires a second physical or remote copy.
 - At that checkpoint the application still contained restaurant-era data and screens; the later conversion session below supersedes that limitation for the active UI.
 
@@ -197,3 +197,8 @@
 - Existing native SQLite databases need explicit `PRAGMA table_info` checks before additive `ALTER TABLE` statements; changing only `CREATE TABLE IF NOT EXISTS` does not upgrade installed databases.
 - Destructive reset is safest as one transaction with dependency-ordered deletes. The owner account, network/backup preferences, and backup archives remain outside the reset boundary, while standalone mode creates a verified safety backup before deletion.
 - The legacy `scripts/backup.sh` assumes a `postgres` database role and failed against the hardened `pos_app` deployment. The active `pos-backup` container script produced the verified pre-deployment recovery point instead.
+
+## 2026-09-28 - Public documentation privacy correction
+
+- A local deployment detail was incorrectly promoted into the public README and knowledge pages. A development machine is operational context, not product identity.
+- Public examples now use generic server/owner placeholders, and `CODEX.md` requires a personal-identifier scan before documentation commits.

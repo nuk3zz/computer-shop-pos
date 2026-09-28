@@ -1,11 +1,11 @@
-# Mac Mini self-hosting
+# Docker self-hosting
 
 ## Address
 
-- Mac Mini: `http://localhost:3000`
-- Trusted home-network devices: `http://<mac-mini-ip>:3000`
+- Server computer: `http://localhost:3000`
+- Trusted local-network devices: `http://<server-ip>:3000`
 
-The network address may change if the router gives the Mac Mini a different DHCP address. Create a router-side DHCP reservation for the Mac Mini's Ethernet adapter before relying on a bookmarked address.
+The network address may change if the router gives the server a different DHCP address. Create a router-side DHCP reservation for the server's network adapter before relying on a bookmarked address.
 
 ## Runtime
 
@@ -16,7 +16,7 @@ Docker Compose runs four containers:
 - `pos-postgres`: private PostgreSQL database, reachable only inside the Docker network.
 - `pos-backup`: private scheduled backup worker.
 
-Only port 3000 is published to the home network. Do not forward this port through the router or expose it directly to the public internet.
+Only port 3000 is published to the local network. Do not forward this port through the router or expose it directly to the public internet.
 
 ## Persistent data
 
@@ -36,12 +36,12 @@ Never paste the password into Git, documentation, screenshots, or support messag
 ## Automatic operation
 
 - `scripts/start-self-host.sh` opens Docker Desktop when necessary, starts the stack, and secures the administrator account.
-- A login LaunchAgent opens Docker Desktop when the Mac user signs in. It does not read the Desktop project folder, avoiding macOS background-process privacy restrictions.
+- On macOS, a login LaunchAgent can open Docker Desktop when the server user signs in. It does not read the project folder, avoiding background-process privacy restrictions.
 - The versioned LaunchAgent definition is `deploy/macos/com.nuk3zz.computer-shop-pos.start.plist`; its installed copy belongs in `~/Library/LaunchAgents/`.
-- The `pos-backup` container creates a database dump and uploads archive every day at 02:30 Sri Lanka time (21:00 UTC).
+- The `pos-backup` container creates a database dump and uploads archive on its configured daily schedule.
 - Containers use `restart: unless-stopped`, so Docker restarts the application and backup worker after Docker Desktop restarts.
 
-Local backups on the same Mac do not protect against disk failure or theft. Copy periodic backups to another physical device before using the system for real shop records.
+Local backups on the same server do not protect against disk failure or theft. Copy periodic backups to another physical device before using the system for real shop records.
 
 ## Manual commands
 

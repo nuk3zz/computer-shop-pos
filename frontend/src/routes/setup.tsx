@@ -153,7 +153,7 @@ function SetupPage() {
                 <Field label="Last name (optional)"><Input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" /></Field>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Username"><Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Example: isuru" autoComplete="username" /></Field>
+                <Field label="Username"><Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Example: owner" autoComplete="username" /></Field>
                 <Field label="Email (optional)"><Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></Field>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
