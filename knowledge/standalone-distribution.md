@@ -4,7 +4,7 @@ Source: [`raw/2026-09-28-standalone-installers-backup-update-request.md`](../raw
 
 ## Goals
 
-- Windows x64 and Linux x64 installation without Docker.
+- Windows x64, Linux x64, and universal macOS installation without Docker.
 - One lightweight Go server with the compiled web interface embedded.
 - SQLite for native installations; PostgreSQL remains supported for the existing Docker deployment.
 - Durable state outside the installation directory so upgrades replace program files without replacing shop data.
@@ -46,6 +46,7 @@ An explicit `COMPUTER_SHOP_DATA_DIR` environment value overrides this location f
 
 - The Windows x64 Inno Setup package permits an installation-path choice, creates startup and browser shortcuts, and can add a TCP 3000 rule limited to Windows' private-network profile.
 - The Linux x64 Debian package configures a systemd service owned by the invoking non-root user, stores data under that user's Documents directory, and provides `computer-shop-pos-status` to print service health and detected URLs.
+- The universal macOS package installs Apple Silicon and Intel code plus a per-user LaunchAgent; it uses the same Documents data directory and starts at sign-in.
 - Package uninstall metadata never owns or removes the Documents data directory.
 
 ## Network modes

@@ -11,3 +11,4 @@
 - [Standalone distribution](standalone-distribution.md) - native Windows/Linux packaging, SQLite data, backups, restore, updates, and owner setup.
 - [Settings, owner profile, and fresh start](settings-profile-and-reset.md) - persistent identity, editable owner details, and guarded data reset.
 - [Public documentation privacy](public-documentation-privacy.md) - rules for keeping owner and device details out of the public repository.
+- [iPad and macOS distribution](ipad-and-macos-distribution.md) - Home Screen installation, network requirements, and the universal macOS package.

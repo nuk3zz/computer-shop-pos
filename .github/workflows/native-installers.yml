@@ -87,9 +87,46 @@ jobs:
           path: installer/windows/output/*.exe
           if-no-files-found: error
 
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          fi
+      - name: Build universal macOS server and installer
+        shell: bash
+        run: |
+          chmod +x scripts/build-native.sh scripts/build-macos-pkg.sh installer/macos/scripts/postinstall
+          scripts/build-native.sh darwin arm64 "$VERSION" "$PWD/dist-native/arm64"
+          scripts/build-native.sh darwin amd64 "$VERSION" "$PWD/dist-native/amd64"
+          lipo -create -output "$PWD/dist-native/computer-shop-pos" "$PWD/dist-native/arm64/computer-shop-pos" "$PWD/dist-native/amd64/computer-shop-pos"
+          scripts/build-macos-pkg.sh "$VERSION" "$PWD/dist-native/computer-shop-pos" "$PWD/dist-native"
+          lipo -archs "$PWD/dist-native/computer-shop-pos"
+          pkgutil --payload-files "$PWD/dist-native/Computer-Shop-POS-$VERSION-macOS-Universal.pkg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal-installer
+          path: dist-native/*.pkg
+          if-no-files-found: error
+
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [linux, windows]
+    needs: [linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

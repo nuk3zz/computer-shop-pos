@@ -202,3 +202,10 @@
 
 - A local deployment detail was incorrectly promoted into the public README and knowledge pages. A development machine is operational context, not product identity.
 - Public examples now use generic server/owner placeholders, and `CODEX.md` requires a personal-identifier scan before documentation commits.
+
+## 2026-09-28 - iPad Home Screen app and macOS packaging
+
+- The lowest-maintenance iPad distribution is the existing responsive client installed from Safari with Open as Web App. It still needs a reachable server and intentionally does not claim offline sales or inventory support.
+- Added explicit web-app metadata and a dedicated Home Screen icon instead of the inherited Vite favicon.
+- A macOS package can reuse the pure-Go native server: two Go builds combine into one universal binary, while a LaunchAgent provides automatic startup and keeps SQLite data outside package ownership.
+- Unsigned public macOS packages are useful for internal testing but are not equivalent to Developer ID signing and Apple notarization; those require owner-held Apple credentials.
