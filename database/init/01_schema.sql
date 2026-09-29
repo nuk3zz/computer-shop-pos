@@ -39,6 +39,7 @@ CREATE TABLE products (
     price DECIMAL(10,2) NOT NULL,
     cost_price DECIMAL(10,2) NOT NULL DEFAULT 0,
     item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('product', 'service')) DEFAULT 'product',
+    preorder_enabled BOOLEAN NOT NULL DEFAULT false,
     image_url VARCHAR(500),
     barcode VARCHAR(50),
     sku VARCHAR(50) UNIQUE,

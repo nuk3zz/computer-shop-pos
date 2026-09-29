@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS products (
     price NUMERIC NOT NULL,
     cost_price NUMERIC NOT NULL DEFAULT 0,
     item_type TEXT NOT NULL DEFAULT 'product' CHECK (item_type IN ('product', 'service')),
+    preorder_enabled BOOLEAN NOT NULL DEFAULT 0,
     image_url TEXT,
     barcode TEXT,
     sku TEXT UNIQUE,
@@ -101,6 +102,9 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_phone TEXT,
     order_type TEXT NOT NULL CHECK (order_type IN ('sale', 'service')),
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled')),
+    fulfillment_type TEXT NOT NULL DEFAULT 'in_store',
+    fulfillment_status TEXT NOT NULL DEFAULT 'completed',
+    stock_committed BOOLEAN NOT NULL DEFAULT 0,
     subtotal NUMERIC NOT NULL DEFAULT 0,
     tax_amount NUMERIC NOT NULL DEFAULT 0,
     discount_amount NUMERIC NOT NULL DEFAULT 0,
@@ -160,6 +164,46 @@ CREATE TABLE IF NOT EXISTS order_status_history (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS suppliers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT,
+    location TEXT,
+    notes TEXT,
+    credit_allowed BOOLEAN NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS supplier_purchases (
+    id TEXT PRIMARY KEY,
+    supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+    reference_number TEXT,
+    total_amount NUMERIC NOT NULL DEFAULT 0,
+    notes TEXT,
+    purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS supplier_purchase_items (
+    id TEXT PRIMARY KEY,
+    purchase_id TEXT NOT NULL REFERENCES supplier_purchases(id) ON DELETE CASCADE,
+    product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    unit_cost NUMERIC NOT NULL CHECK (unit_cost >= 0),
+    total_cost NUMERIC NOT NULL CHECK (total_cost >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS supplier_payments (
+    id TEXT PRIMARY KEY,
+    supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+    purchase_id TEXT REFERENCES supplier_purchases(id) ON DELETE SET NULL,
+    amount NUMERIC NOT NULL CHECK (amount > 0),
+    notes TEXT,
+    paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
@@ -173,6 +217,8 @@ CREATE INDEX IF NOT EXISTS idx_products_is_available ON products(is_available);
 CREATE INDEX IF NOT EXISTS idx_products_item_type ON products(item_type);
 CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_product_unique ON inventory(product_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_purchases_supplier ON supplier_purchases(supplier_id, purchased_at);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id, paid_at);
 
 INSERT OR IGNORE INTO users (id, username, email, password_hash, first_name, last_name, role, is_active)
 VALUES ('00000000-0000-4000-8000-000000000001', 'setup-owner', 'setup@localhost.invalid', '!', 'Setup', 'Owner', 'admin', 0);

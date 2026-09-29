@@ -94,8 +94,8 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 
 	// Check if order exists and get total amount
 	var orderTotalAmount float64
-	var orderStatus string
-	err = tx.QueryRow("SELECT total_amount, status FROM orders WHERE id = $1", orderID).Scan(&orderTotalAmount, &orderStatus)
+	var orderStatus, orderType, fulfillmentStatus string
+	err = tx.QueryRow("SELECT total_amount, status, order_type, fulfillment_status FROM orders WHERE id = $1", orderID).Scan(&orderTotalAmount, &orderStatus, &orderType, &fulfillmentStatus)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, models.APIResponse{
 			Success: false,
@@ -189,8 +189,8 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 
 	// Check if order is now fully paid
 	newTotalPaid := totalPaid + req.Amount
-	if newTotalPaid >= orderTotalAmount {
-		// Update order status to completed if fully paid
+	if newTotalPaid >= orderTotalAmount && (orderType == "service" || fulfillmentStatus == "delivered" || fulfillmentStatus == "completed") {
+		// A delivery is complete only when both fulfillment and payment are complete.
 		_, err = tx.Exec(`
 			UPDATE orders 
 			SET status = 'completed', completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -453,4 +453,3 @@ func (h *PaymentHandler) getPaymentByID(paymentID uuid.UUID) (*models.Payment, e
 
 	return &payment, nil
 }
-

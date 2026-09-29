@@ -48,6 +48,7 @@ export const createProductSchema = z.object({
   price: priceSchema,
   cost_price: z.number().min(0, 'Cost cannot be negative').default(0),
   item_type: z.enum(['product', 'service']).default('product'),
+  preorder_enabled: z.boolean().default(false),
   category_id: requiredStringSchema,
   image_url: imageUrlSchema.optional(),
   image_urls: z.array(imageUrlSchema).max(10, 'Use no more than 10 images').optional(),

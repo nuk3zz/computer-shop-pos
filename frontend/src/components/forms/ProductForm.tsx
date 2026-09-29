@@ -13,6 +13,7 @@ import {
   PriceInputField,
   NumberInputField,
   SelectField,
+  SwitchField,
   FormSubmitButton,
   productStatusOptions
 } from '@/components/forms/FormComponents'
@@ -61,6 +62,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         price: product.price,
         cost_price: product.cost_price || 0,
         item_type: product.item_type || (product.preparation_time > 0 ? ('service' as const) : ('product' as const)),
+        preorder_enabled: product.preorder_enabled || false,
         category_id: product.category_id,
         image_url: product.image_url || '',
         image_urls: product.images || (product.image_url ? [product.image_url] : []),
@@ -74,6 +76,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
         price: 0,
         cost_price: 0,
         item_type: 'product' as const,
+        preorder_enabled: false,
         category_id: categories[0]?.id || '',
         image_url: '',
         image_urls: [],
@@ -138,6 +141,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
     const { status, ...productData } = data
     const preparedData = {
       ...productData,
+      preorder_enabled: productData.item_type === 'product' ? productData.preorder_enabled || false : false,
       stock_quantity: productData.item_type === 'product' ? productData.stock_quantity || 0 : 0,
       preparation_time: productData.item_type === 'service'
         ? Math.max(1, productData.preparation_time || 1) * 1440
@@ -304,14 +308,22 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
               <PriceInputField control={form.control} name="price" label="Selling Price (LKR)" currency="Rs." description="Amount charged to the customer" />
 
               {itemType === 'product' ? (
-                <NumberInputField
-                  control={form.control}
-                  name="stock_quantity"
-                  label="Quantity in Stock"
-                  min={0}
-                  max={1000000}
-                  description="How many of this physical item you currently own"
-                />
+                <div className="space-y-4">
+                  <NumberInputField
+                    control={form.control}
+                    name="stock_quantity"
+                    label="Quantity in Stock"
+                    min={0}
+                    max={1000000}
+                    description="How many of this physical item you currently own"
+                  />
+                  <SwitchField
+                    control={form.control}
+                    name="preorder_enabled"
+                    label="Show as pre-order when stock is zero"
+                    description="Uses a small amber text label in Sales & Services"
+                  />
+                </div>
               ) : (
                 <NumberInputField
                   control={form.control}

@@ -10,8 +10,10 @@ A universal sales, inventory, service-workflow, and invoicing system built from 
 - Uploaded thumbnails for fast item recognition.
 - Supplier cost, selling price, stock, and low-stock visibility.
 - Sales and repair/work orders containing products, services, or both.
+- Counter, pickup, prepaid-delivery, and cash-on-delivery product tracking.
+- Supplier purchasing, stock receipts, credit permissions, debt, and repayments.
 - Trackable service tickets with customer phone details and WhatsApp status messages.
-- Revenue, cost, gross-profit, and margin reports.
+- Clearly separated sales collected, cost, gross-profit, and margin reports.
 - Basic printable invoices, with a custom template planned later.
 
 The confirmed scope and staged implementation plan are in the [product brief](knowledge/product-brief.md) and [V1 roadmap](knowledge/v1-roadmap.md).

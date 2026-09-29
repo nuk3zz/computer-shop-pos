@@ -49,6 +49,15 @@ An explicit `UNIVERSAL_REPAIR_POS_DATA_DIR` environment value overrides this loc
 - The universal macOS package installs Apple Silicon and Intel code plus a per-user LaunchAgent; it uses the same Documents data directory and starts at sign-in.
 - Package uninstall metadata never owns or removes the Documents data directory.
 
+## macOS migration and updates
+
+Source: [`raw/2026-09-29-macos-first-run-port-conflict.md`](../raw/2026-09-29-macos-first-run-port-conflict.md)
+
+- Do not run the Docker and native macOS editions on port 3000 simultaneously. A browser can otherwise reach the older Docker login while the fresh native SQLite installation is still waiting at `/setup`.
+- When moving this Mac from Docker to the native package, stop the Docker Compose stack without removing its volumes, then restart the native LaunchAgent and open `http://localhost:3000/setup`.
+- Native macOS updates are installed by running the newer `.pkg` over the existing installation. The package replaces the binary and LaunchAgent only; `Documents/Universal Repair POS/` remains intact.
+- The in-app **Check for updates** action opens the current GitHub release. Download the macOS Universal `.pkg`, run it, and reopen `http://localhost:3000` after installation.
+
 ## Network modes
 
 - `local`: requests are accepted only from loopback addresses.

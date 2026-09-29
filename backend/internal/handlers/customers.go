@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"pos-backend/internal/models"
 
@@ -201,8 +202,10 @@ func (h *CustomerHandler) fetchCustomer(id uuid.UUID) (models.Customer, error) {
 		GROUP BY c.id`, id)
 
 	var customer models.Customer
+	var lastVisit any
 	err := row.Scan(&customer.ID, &customer.Name, &customer.Phone, &customer.ImageURL, &customer.Email, &customer.Notes,
-		&customer.CreatedAt, &customer.UpdatedAt, &customer.OrderCount, &customer.TotalSpent, &customer.LastVisit)
+		&customer.CreatedAt, &customer.UpdatedAt, &customer.OrderCount, &customer.TotalSpent, &lastVisit)
+	customer.LastVisit = parseNullableTime(lastVisit)
 	return customer, err
 }
 
@@ -212,9 +215,27 @@ type customerScanner interface {
 
 func scanCustomer(scanner customerScanner) (models.Customer, error) {
 	var customer models.Customer
+	var lastVisit any
 	err := scanner.Scan(&customer.ID, &customer.Name, &customer.Phone, &customer.ImageURL, &customer.Email, &customer.Notes,
-		&customer.CreatedAt, &customer.UpdatedAt, &customer.OrderCount, &customer.TotalSpent, &customer.LastVisit)
+		&customer.CreatedAt, &customer.UpdatedAt, &customer.OrderCount, &customer.TotalSpent, &lastVisit)
+	customer.LastVisit = parseNullableTime(lastVisit)
 	return customer, err
+}
+
+func parseNullableTime(value any) *time.Time {
+	switch typed := value.(type) {
+	case time.Time:
+		return &typed
+	case string:
+		for _, layout := range []string{"2006-01-02 15:04:05.999999999-07:00", "2006-01-02 15:04:05.999999999Z07:00", "2006-01-02 15:04:05", time.RFC3339Nano} {
+			if parsed, err := time.Parse(layout, typed); err == nil {
+				return &parsed
+			}
+		}
+	case []byte:
+		return parseNullableTime(string(typed))
+	}
+	return nil
 }
 
 func positiveInt(raw string, fallback int) int {

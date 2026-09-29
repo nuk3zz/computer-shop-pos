@@ -7,6 +7,8 @@ import {
   ShoppingCart,
   Wrench,
   PackageSearch,
+  Truck,
+  Warehouse,
   Settings,
   BarChart3,
   UserCog,
@@ -45,11 +47,25 @@ const adminSections = [
     href: '/admin/repairs'
   },
   {
+    id: 'orders',
+    label: 'Product Orders',
+    icon: <Truck className="w-5 h-5" />,
+    description: 'Packing, delivery, and COD tracking',
+    href: '/admin/orders'
+  },
+  {
     id: 'catalog',
     label: 'Catalog & Inventory',
     icon: <PackageSearch className="w-5 h-5" />,
     description: 'Products, services, and categories',
     href: '/admin/catalog'
+  },
+  {
+    id: 'supply-chain',
+    label: 'Supply Chain',
+    icon: <Warehouse className="w-5 h-5" />,
+    description: 'Suppliers, stock purchases, and debt',
+    href: '/admin/supply-chain'
   },
   {
     id: 'clients',

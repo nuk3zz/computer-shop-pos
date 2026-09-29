@@ -344,7 +344,14 @@ export function AdminMenuManagement() {
                               <span className="font-medium">{product.item_type === 'product' ? product.stock_quantity : `${Math.max(1, Math.ceil(product.preparation_time / 1440))}d`}</span>
                             </div>
                           </div>
-                          <div className="mt-1.5 truncate text-[11px] text-muted-foreground">{product.category?.name || 'Uncategorized'} · {product.item_type === 'product' ? 'Product' : 'Service'}</div>
+                          <div className="mt-1.5 flex items-center gap-2 truncate text-[11px] text-muted-foreground">
+                            <span>{product.category?.name || 'Uncategorized'} · {product.item_type === 'product' ? 'Product' : 'Service'}</span>
+                            {product.item_type === 'product' && (
+                              <span className={`font-semibold ${product.stock_quantity > 0 ? 'text-emerald-600' : product.preorder_enabled ? 'text-amber-600' : 'text-red-600'}`}>
+                                {product.stock_quantity > 0 ? 'In stock' : product.preorder_enabled ? 'Pre-order' : 'Out of stock'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>

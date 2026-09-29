@@ -225,3 +225,28 @@
 - The owner account itself was still active and its original owner-only saved credential continued to authenticate, showing that the earlier 404 had not changed its password. Account diagnosis should test credentials without printing them.
 - Login tokens already persisted across browser restarts in local storage; an explicit default-on 30-day option now makes the duration understandable while invalid credentials remain deliberately generic to prevent username discovery.
 - Verify the production path through the frontend reverse proxy (`/health` on port 3000); the backend container is intentionally not exposed directly on host port 8080.
+
+## 2026-09-29 - macOS native first-run port conflict
+
+- A fresh native SQLite installation can correctly report `setup_completed = false` while Safari shows an existing Docker installation's login page if both editions listen on port 3000.
+- Diagnose first-run routing by comparing the native database, `/api/v1/setup/status`, active listeners, Docker Compose state, and the LaunchAgent log before resetting any data.
+- Stopping the old Docker stack (without deleting volumes), restarting the native LaunchAgent, and loading `/setup` resolved the conflict; the wizard was then verified through Safari's accessibility tree.
+- macOS package updates are in-place: reinstalling a newer `.pkg` replaces program files while preserving `Documents/Universal Repair POS/`.
+
+## 2026-09-29 - Atomic product sales, supplier debt, and stock labels
+
+- A successful order row alone is not a completed sale. Product checkout must atomically save/link the client, snapshot selling and cost prices, decrement stock, create fulfillment state, and record any payment already received.
+- Financial reporting must distinguish customer cash collected from earnings: LKR 15,000 collected on an item costing LKR 10,000 is LKR 15,000 sales collected and LKR 5,000 gross profit.
+- SQLite aggregate timestamps can be returned as strings. Scanning `MAX(created_at)` directly into `*time.Time` made the entire client list fail after its first order; parse nullable aggregate values explicitly.
+- COD fulfillment and payment are separate facts. A COD order completes only after both delivery and full payment; prepaid delivery records money immediately but remains operationally open until delivered.
+- Supplier purchases and payments work best as separate append-only records. Inventory and acquisition cost update with the purchase transaction, while outstanding debt is total purchases minus all supplier payments.
+- Non-credit suppliers must reject partial payment before inventory changes. Runtime verification confirmed the rejected request left stock unchanged.
+- Additive SQLite indexes that reference new columns must be created after compatibility `ALTER TABLE` steps. Putting the index in the base schema prevents older installed databases from starting before migration runs.
+- Stock state is clearest as unboxed text: green In stock, red Out of stock, and amber Pre-order. Pre-order uses an explicit catalog flag; it is not guessed from a zero count.
+
+### Verification and recovery
+
+- Backend tests, TypeScript checking, and the production frontend build pass.
+- A disposable native SQLite runtime proved stock decrement, client persistence, LKR 15,000 sales collected, LKR 5,000 gross profit, explicit pre-order persistence, supplier stock receipt, debt repayment, COD completion, and non-credit rollback.
+- A copy of a pre-feature native database started successfully and gained the fulfillment, stock-commit, and pre-order columns through additive migration.
+- Before repairing the one known live sale, a checksum-verified recovery set was saved under `Documents/Universal Repair POS/backups/recovery-20260929-150610`; the exact order was then completed, paid, and its stock changed from one to zero.

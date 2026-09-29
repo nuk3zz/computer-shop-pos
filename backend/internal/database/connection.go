@@ -55,6 +55,22 @@ func connectPostgres(config Config) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
+	if _, err := db.Exec(`
+		ALTER TABLE products ADD COLUMN IF NOT EXISTS preorder_enabled BOOLEAN NOT NULL DEFAULT false;
+		ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_type VARCHAR(30) NOT NULL DEFAULT 'in_store';
+		ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_status VARCHAR(30) NOT NULL DEFAULT 'completed';
+		ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed BOOLEAN NOT NULL DEFAULT false;
+		CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(order_type, fulfillment_status);
+		CREATE TABLE IF NOT EXISTS suppliers (id UUID PRIMARY KEY, name VARCHAR(150) NOT NULL, phone VARCHAR(30), location TEXT, notes TEXT, credit_allowed BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		CREATE TABLE IF NOT EXISTS supplier_purchases (id UUID PRIMARY KEY, supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT, reference_number VARCHAR(100), total_amount NUMERIC(12,2) NOT NULL DEFAULT 0, notes TEXT, purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		CREATE TABLE IF NOT EXISTS supplier_purchase_items (id UUID PRIMARY KEY, purchase_id UUID NOT NULL REFERENCES supplier_purchases(id) ON DELETE CASCADE, product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT, quantity INTEGER NOT NULL CHECK (quantity > 0), unit_cost NUMERIC(12,2) NOT NULL CHECK (unit_cost >= 0), total_cost NUMERIC(12,2) NOT NULL CHECK (total_cost >= 0));
+		CREATE TABLE IF NOT EXISTS supplier_payments (id UUID PRIMARY KEY, supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT, purchase_id UUID REFERENCES supplier_purchases(id) ON DELETE SET NULL, amount NUMERIC(12,2) NOT NULL CHECK (amount > 0), notes TEXT, paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		CREATE INDEX IF NOT EXISTS idx_supplier_purchases_supplier ON supplier_purchases(supplier_id, purchased_at);
+		CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id, paid_at);
+	`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("apply product order migration: %w", err)
+	}
 	if _, err := db.Exec(`UPDATE shop_profile SET company_name = 'Universal Repair POS', description = CASE WHEN description = 'Sales and repair management' THEN 'Sales, service, and repair management' ELSE description END, updated_at = CURRENT_TIMESTAMP WHERE company_name = 'Computer Shop POS'`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("apply product identity migration: %w", err)
@@ -113,6 +129,10 @@ func applySQLiteCompatibilityMigrations(db *sql.DB) error {
 	}{
 		{"users", "profile_image_url", "TEXT"},
 		{"shop_profile", "description", "TEXT NOT NULL DEFAULT 'Sales and repair management'"},
+		{"products", "preorder_enabled", "BOOLEAN NOT NULL DEFAULT 0"},
+		{"orders", "fulfillment_type", "TEXT NOT NULL DEFAULT 'in_store'"},
+		{"orders", "fulfillment_status", "TEXT NOT NULL DEFAULT 'completed'"},
+		{"orders", "stock_committed", "BOOLEAN NOT NULL DEFAULT 0"},
 	}
 	for _, migration := range columns {
 		exists, err := sqliteColumnExists(db, migration.table, migration.column)
@@ -128,7 +148,10 @@ func applySQLiteCompatibilityMigrations(db *sql.DB) error {
 	if _, err := db.Exec(`UPDATE shop_profile SET company_name = 'Universal Repair POS', description = 'Sales, service, and repair management', updated_at = CURRENT_TIMESTAMP WHERE company_name = 'Computer Shop POS'`); err != nil {
 		return err
 	}
-	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (3)`)
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(order_type, fulfillment_status)`); err != nil {
+		return err
+	}
+	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (5)`)
 	return err
 }
 

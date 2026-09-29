@@ -25,6 +25,10 @@ import type {
   SystemInfo,
   BackupInfo,
   UpdateInfo,
+  Supplier,
+  SupplierInput,
+  SupplierPurchase,
+  SupplierPurchaseInput,
 } from '@/types';
 
 class APIClient {
@@ -160,6 +164,30 @@ class APIClient {
     return this.request({ method: 'PUT', url: `/admin/customers/${id}`, data: customer });
   }
 
+  async getSuppliers(): Promise<APIResponse<Supplier[]>> {
+    return this.request({ method: 'GET', url: '/suppliers' });
+  }
+
+  async createSupplier(input: SupplierInput): Promise<APIResponse<{ id: string }>> {
+    return this.request({ method: 'POST', url: '/admin/suppliers', data: input });
+  }
+
+  async updateSupplier(id: string, input: SupplierInput): Promise<APIResponse> {
+    return this.request({ method: 'PUT', url: `/admin/suppliers/${id}`, data: input });
+  }
+
+  async getSupplierPurchases(): Promise<APIResponse<SupplierPurchase[]>> {
+    return this.request({ method: 'GET', url: '/supplier-purchases' });
+  }
+
+  async createSupplierPurchase(input: SupplierPurchaseInput): Promise<APIResponse> {
+    return this.request({ method: 'POST', url: '/admin/supplier-purchases', data: input });
+  }
+
+  async createSupplierPayment(id: string, amount: number, notes?: string): Promise<APIResponse> {
+    return this.request({ method: 'POST', url: `/admin/suppliers/${id}/payments`, data: { amount, notes } });
+  }
+
   // Order endpoints
   async getOrders(filters?: OrderFilters): Promise<PaginatedResponse<Order[]>> {
     return this.request({
@@ -193,11 +221,15 @@ class APIClient {
     });
   }
 
+  async updateFulfillmentStatus(id: string, status: Order['fulfillment_status']): Promise<APIResponse<Order>> {
+    return this.request({ method: 'PATCH', url: `/orders/${id}/fulfillment`, data: { status } });
+  }
+
   // Payment endpoints
   async processPayment(orderId: string, payment: ProcessPaymentRequest): Promise<APIResponse<Payment>> {
     return this.request({
       method: 'POST',
-      url: `/orders/${orderId}/payments`,
+      url: `/admin/orders/${orderId}/payments`,
       data: payment,
     });
   }

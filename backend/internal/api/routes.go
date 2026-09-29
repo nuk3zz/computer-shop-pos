@@ -28,6 +28,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	shopProfileHandler := handlers.NewShopProfileHandler(db)
 	initialSetupHandler := handlers.NewInitialSetupHandler(db, imageUploadHandler)
 	maintenanceHandler := handlers.NewMaintenanceHandler(db, dataDir, uploadDir, appVersion)
+	supplyChainHandler := handlers.NewSupplyChainHandler(db)
 
 	// Public routes (no authentication required)
 	public := router.Group("/")
@@ -56,12 +57,15 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		protected.GET("/customers", customerHandler.GetCustomers)
 		protected.GET("/customers/:id", customerHandler.GetCustomer)
 		protected.GET("/shop-profile", shopProfileHandler.Get)
+		protected.GET("/suppliers", supplyChainHandler.GetSuppliers)
+		protected.GET("/supplier-purchases", supplyChainHandler.GetPurchases)
 
 		// Sales and repair-ticket routes
 		protected.GET("/orders", orderHandler.GetOrders)
 		protected.POST("/orders", middleware.RequireRoles([]string{"admin", "manager", "sales", "technician"}), orderHandler.CreateOrder)
 		protected.GET("/orders/:id", orderHandler.GetOrder)
 		protected.PATCH("/orders/:id/status", orderHandler.UpdateOrderStatus)
+		protected.PATCH("/orders/:id/fulfillment", middleware.RequireRoles([]string{"admin", "manager", "sales"}), orderHandler.UpdateFulfillmentStatus)
 
 		// Payment routes (counter/admin only)
 		protected.GET("/orders/:id/payments", paymentHandler.GetPayments)
@@ -102,6 +106,10 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.POST("/system/start-fresh", maintenanceHandler.StartFresh)
 		admin.POST("/customers", customerHandler.CreateCustomer)
 		admin.PUT("/customers/:id", customerHandler.UpdateCustomer)
+		admin.POST("/suppliers", supplyChainHandler.CreateSupplier)
+		admin.PUT("/suppliers/:id", supplyChainHandler.UpdateSupplier)
+		admin.POST("/supplier-purchases", supplyChainHandler.CreatePurchase)
+		admin.POST("/suppliers/:id/payments", supplyChainHandler.CreatePayment)
 
 		// User management with pagination
 		admin.GET("/users", getAdminUsers(db)) // Update with pagination
@@ -124,19 +132,32 @@ func getDashboardStats(db *sql.DB) gin.HandlerFunc {
 
 		// Today's orders
 		var todayOrders int
-		db.QueryRow(`
-			SELECT COUNT(*) 
-			FROM orders 
-			WHERE DATE(created_at) = CURRENT_DATE
-		`).Scan(&todayOrders)
+		todayOrdersQuery := `SELECT COUNT(*) FROM orders WHERE DATE(created_at) = CURRENT_DATE`
+		if database.IsSQLite(db) {
+			todayOrdersQuery = `SELECT COUNT(*) FROM orders WHERE date(created_at, 'localtime') = date('now', 'localtime')`
+		}
+		db.QueryRow(todayOrdersQuery).Scan(&todayOrders)
 
-		// Today's revenue
-		var todayRevenue float64
-		db.QueryRow(`
-			SELECT COALESCE(SUM(total_amount), 0) 
-			FROM orders 
-			WHERE DATE(created_at) = CURRENT_DATE AND status = 'completed'
-		`).Scan(&todayRevenue)
+		// Revenue and profit are recognized when an order is fully paid, even if a
+		// prepaid delivery is still moving through fulfillment.
+		var todayRevenue, todayProfit float64
+		paidToday := `DATE(paid.paid_at) = CURRENT_DATE`
+		if database.IsSQLite(db) {
+			paidToday = `date(paid.paid_at, 'localtime') = date('now', 'localtime')`
+		}
+		db.QueryRow(fmt.Sprintf(`
+			WITH paid AS (
+				SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at
+				FROM payments WHERE status = 'completed' GROUP BY order_id
+			), costs AS (
+				SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id
+			)
+			SELECT COALESCE(SUM(o.total_amount), 0),
+			       COALESCE(SUM(o.total_amount - o.tax_amount - COALESCE(costs.total_cost, 0)), 0)
+			FROM orders o JOIN paid ON paid.order_id = o.id
+			LEFT JOIN costs ON costs.order_id = o.id
+			WHERE paid.total_paid >= o.total_amount AND %s
+		`, paidToday)).Scan(&todayRevenue, &todayProfit)
 
 		// Active orders
 		var activeOrders int
@@ -156,6 +177,7 @@ func getDashboardStats(db *sql.DB) gin.HandlerFunc {
 
 		stats["today_orders"] = todayOrders
 		stats["today_revenue"] = todayRevenue
+		stats["today_profit"] = todayProfit
 		stats["active_orders"] = activeOrders
 		stats["open_repairs"] = openRepairs
 
@@ -174,53 +196,57 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 
 		var query string
 		if database.IsSQLite(db) {
-			groupExpression := "date(o.created_at)"
-			whereExpression := "date(o.created_at) = date('now', 'localtime')"
+			groupExpression := "date(paid.paid_at)"
+			whereExpression := "date(paid.paid_at, 'localtime') = date('now', 'localtime')"
 			switch period {
 			case "week":
-				whereExpression = "o.created_at >= datetime('now', '-7 days')"
+				whereExpression = "paid.paid_at >= datetime('now', '-7 days')"
 			case "month":
-				whereExpression = "o.created_at >= datetime('now', '-30 days')"
+				whereExpression = "paid.paid_at >= datetime('now', '-30 days')"
 			default:
-				groupExpression = "strftime('%Y-%m-%dT%H:00:00', o.created_at, 'localtime')"
+				groupExpression = "strftime('%Y-%m-%dT%H:00:00', paid.paid_at, 'localtime')"
 			}
 			query = fmt.Sprintf(`
+				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
+				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
 				SELECT %s as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o
-				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
-				WHERE %s AND o.status = 'completed'
+				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
+				WHERE %s AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
 				GROUP BY %s ORDER BY date DESC`, groupExpression, whereExpression, groupExpression)
 		} else {
 			switch period {
 			case "week":
 				query = `
-				SELECT DATE(o.created_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
+				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
+				SELECT DATE(paid.paid_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o
-				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
-				WHERE o.created_at >= CURRENT_DATE - INTERVAL '7 days' AND o.status = 'completed'
-				GROUP BY DATE(o.created_at)
+				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
+				WHERE paid.paid_at >= CURRENT_DATE - INTERVAL '7 days' AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
+				GROUP BY DATE(paid.paid_at)
 				ORDER BY date DESC
 			`
 			case "month":
 				query = `
-				SELECT DATE(o.created_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
+				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
+				SELECT DATE(paid.paid_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o
-				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
-				WHERE o.created_at >= CURRENT_DATE - INTERVAL '30 days' AND o.status = 'completed'
-				GROUP BY DATE(o.created_at)
+				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
+				WHERE paid.paid_at >= CURRENT_DATE - INTERVAL '30 days' AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
+				GROUP BY DATE(paid.paid_at)
 				ORDER BY date DESC
 			`
 			default: // today
 				query = `
-				SELECT DATE_TRUNC('hour', o.created_at) as hour, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
+				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
+				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
+				SELECT DATE_TRUNC('hour', paid.paid_at) as hour, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
 				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o
-				LEFT JOIN (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id) cost ON cost.order_id = o.id
-				WHERE DATE(o.created_at) = CURRENT_DATE AND o.status = 'completed'
-				GROUP BY DATE_TRUNC('hour', o.created_at)
+				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
+				WHERE DATE(paid.paid_at) = CURRENT_DATE AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
+				GROUP BY DATE_TRUNC('hour', paid.paid_at)
 				ORDER BY hour DESC
 			`
 			}
@@ -445,83 +471,51 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 
 		var query string
 		if database.IsSQLite(db) {
-			groupExpression := "strftime('%Y-%m-%dT%H:00:00', created_at, 'localtime')"
-			whereExpression := "date(created_at) = date('now', 'localtime')"
+			groupExpression := "strftime('%Y-%m-%dT%H:00:00', paid.paid_at, 'localtime')"
+			whereExpression := "date(paid.paid_at, 'localtime') = date('now', 'localtime')"
 			switch period {
 			case "week":
-				groupExpression = "date(created_at)"
-				whereExpression = "created_at >= datetime('now', '-7 days')"
+				groupExpression = "date(paid.paid_at)"
+				whereExpression = "paid.paid_at >= datetime('now', '-7 days')"
 			case "month":
-				groupExpression = "date(created_at)"
-				whereExpression = "created_at >= datetime('now', '-30 days')"
+				groupExpression = "date(paid.paid_at)"
+				whereExpression = "paid.paid_at >= datetime('now', '-30 days')"
 			case "year":
-				groupExpression = "strftime('%Y-%m-01', created_at)"
-				whereExpression = "created_at >= datetime('now', '-1 year')"
+				groupExpression = "strftime('%Y-%m-01', paid.paid_at)"
+				whereExpression = "paid.paid_at >= datetime('now', '-1 year')"
 			}
 			query = fmt.Sprintf(`
-				SELECT %s as period, COUNT(*) as total_orders, SUM(total_amount) as gross_income,
-				       SUM(tax_amount) as tax_collected, SUM(total_amount - tax_amount) as net_income
-				FROM orders WHERE %s AND status = 'completed'
+				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
+				costs AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
+				SELECT %s as period, COUNT(*) as total_orders, SUM(o.total_amount) as gross_income,
+				       SUM(o.tax_amount) as tax_collected, SUM(o.total_amount - o.tax_amount) as net_income,
+				       SUM(o.total_amount - o.tax_amount - COALESCE(costs.total_cost, 0)) as profit
+				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN costs ON costs.order_id = o.id
+				WHERE %s AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
 				GROUP BY %s ORDER BY period DESC`, groupExpression, whereExpression, groupExpression)
 		} else {
+			groupExpression := "DATE_TRUNC('hour', paid.paid_at)"
+			whereExpression := "DATE(paid.paid_at) = CURRENT_DATE"
 			switch period {
 			case "week":
-				query = `
-				SELECT 
-					DATE_TRUNC('day', created_at) as period,
-					COUNT(*) as total_orders,
-					SUM(total_amount) as gross_income,
-					SUM(tax_amount) as tax_collected,
-					SUM(total_amount - tax_amount) as net_income
-				FROM orders 
-				WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' 
-					AND status = 'completed'
-				GROUP BY DATE_TRUNC('day', created_at)
-				ORDER BY period DESC
-			`
+				groupExpression = "DATE_TRUNC('day', paid.paid_at)"
+				whereExpression = "paid.paid_at >= CURRENT_DATE - INTERVAL '7 days'"
 			case "month":
-				query = `
-				SELECT 
-					DATE_TRUNC('day', created_at) as period,
-					COUNT(*) as total_orders,
-					SUM(total_amount) as gross_income,
-					SUM(tax_amount) as tax_collected,
-					SUM(total_amount - tax_amount) as net_income
-				FROM orders 
-				WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' 
-					AND status = 'completed'
-				GROUP BY DATE_TRUNC('day', created_at)
-				ORDER BY period DESC
-			`
+				groupExpression = "DATE_TRUNC('day', paid.paid_at)"
+				whereExpression = "paid.paid_at >= CURRENT_DATE - INTERVAL '30 days'"
 			case "year":
-				query = `
-				SELECT 
-					DATE_TRUNC('month', created_at) as period,
-					COUNT(*) as total_orders,
-					SUM(total_amount) as gross_income,
-					SUM(tax_amount) as tax_collected,
-					SUM(total_amount - tax_amount) as net_income
-				FROM orders 
-				WHERE created_at >= CURRENT_DATE - INTERVAL '1 year' 
-					AND status = 'completed'
-				GROUP BY DATE_TRUNC('month', created_at)
-				ORDER BY period DESC
-			`
-			default: // today
-				query = `
-				SELECT 
-					DATE_TRUNC('hour', created_at) as period,
-					COUNT(*) as total_orders,
-					SUM(total_amount) as gross_income,
-					SUM(tax_amount) as tax_collected,
-					SUM(total_amount - tax_amount) as net_income
-				FROM orders 
-				WHERE DATE(created_at) = CURRENT_DATE 
-					AND status = 'completed'
-				GROUP BY DATE_TRUNC('hour', created_at)
-				ORDER BY period DESC
-			`
+				groupExpression = "DATE_TRUNC('month', paid.paid_at)"
+				whereExpression = "paid.paid_at >= CURRENT_DATE - INTERVAL '1 year'"
 			}
+			query = fmt.Sprintf(`
+				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
+				costs AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
+				SELECT %s as period, COUNT(*) as total_orders, SUM(o.total_amount) as gross_income,
+				       SUM(o.tax_amount) as tax_collected, SUM(o.total_amount - o.tax_amount) as net_income,
+				       SUM(o.total_amount - o.tax_amount - COALESCE(costs.total_cost, 0)) as profit
+				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN costs ON costs.order_id = o.id
+				WHERE %s AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
+				GROUP BY %s ORDER BY period DESC`, groupExpression, whereExpression, groupExpression)
 		}
 
 		rows, err := db.Query(query)
@@ -536,15 +530,15 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 		defer rows.Close()
 
 		var report []map[string]interface{}
-		var totalGross, totalTax, totalNet float64
+		var totalGross, totalTax, totalNet, totalProfit float64
 		var totalOrders int
 
 		for rows.Next() {
 			var period interface{}
 			var orders int
-			var gross, tax, net float64
+			var gross, tax, net, profit float64
 
-			err := rows.Scan(&period, &orders, &gross, &tax, &net)
+			err := rows.Scan(&period, &orders, &gross, &tax, &net, &profit)
 			if err != nil {
 				c.JSON(500, gin.H{
 					"success": false,
@@ -558,6 +552,7 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 			totalGross += gross
 			totalTax += tax
 			totalNet += net
+			totalProfit += profit
 
 			report = append(report, map[string]interface{}{
 				"period": period,
@@ -565,6 +560,7 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				"gross":  gross,
 				"tax":    tax,
 				"net":    net,
+				"profit": profit,
 			})
 		}
 
@@ -574,6 +570,8 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				"gross_income":  totalGross,
 				"tax_collected": totalTax,
 				"net_income":    totalNet,
+				"gross_profit":  totalProfit,
+				"cost_of_goods": totalNet - totalProfit,
 			},
 			"breakdown": report,
 			"period":    period,
@@ -780,6 +778,7 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 			Price           float64  `json:"price" binding:"required"`
 			CostPrice       float64  `json:"cost_price"`
 			ItemType        string   `json:"item_type" binding:"required"`
+			PreorderEnabled bool     `json:"preorder_enabled"`
 			ImageURL        *string  `json:"image_url"`
 			ImageURLs       []string `json:"image_urls"`
 			Barcode         *string  `json:"barcode"`
@@ -828,10 +827,10 @@ func createProduct(db *sql.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		err = tx.QueryRow(`
-			INSERT INTO products (category_id, name, description, price, cost_price, item_type, image_url, barcode, sku, is_available, preparation_time, sort_order)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, true), $11, $12)
+			INSERT INTO products (category_id, name, description, price, cost_price, item_type, preorder_enabled, image_url, barcode, sku, is_available, preparation_time, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11, true), $12, $13)
 			RETURNING id
-		`, req.CategoryID, req.Name, req.Description, req.Price, req.CostPrice, req.ItemType, primaryImage, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
+		`, req.CategoryID, req.Name, req.Description, req.Price, req.CostPrice, req.ItemType, req.PreorderEnabled, primaryImage, req.Barcode, req.SKU, req.IsAvailable, req.PreparationTime, req.SortOrder).Scan(&productID)
 
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -882,6 +881,7 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			Price           *float64  `json:"price"`
 			CostPrice       *float64  `json:"cost_price"`
 			ItemType        *string   `json:"item_type"`
+			PreorderEnabled *bool     `json:"preorder_enabled"`
 			ImageURL        *string   `json:"image_url"`
 			ImageURLs       *[]string `json:"image_urls"`
 			Barcode         *string   `json:"barcode"`
@@ -946,6 +946,11 @@ func updateProduct(db *sql.DB) gin.HandlerFunc {
 			}
 			updates = append(updates, fmt.Sprintf("item_type = $%d", argCount))
 			args = append(args, *req.ItemType)
+			argCount++
+		}
+		if req.PreorderEnabled != nil {
+			updates = append(updates, fmt.Sprintf("preorder_enabled = $%d", argCount))
+			args = append(args, *req.PreorderEnabled)
 			argCount++
 		}
 		if req.ImageURLs != nil {

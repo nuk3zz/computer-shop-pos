@@ -10,7 +10,7 @@ import { getMediaUrl } from '@/lib/media'
 import { formatMoney } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
 import { ProductImageGallery } from '@/components/catalog/ProductImageGallery'
-import type { Customer, Product } from '@/types'
+import type { Customer, ProcessPaymentRequest, Product } from '@/types'
 import { Check, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, X, ZoomIn } from 'lucide-react'
 
 interface CartLine {
@@ -22,6 +22,8 @@ export function SalesWorkspace() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [orderType, setOrderType] = useState<'sale' | 'service'>('sale')
+  const [fulfillmentType, setFulfillmentType] = useState<'in_store' | 'pickup' | 'delivery' | 'cash_on_delivery'>('in_store')
+  const [paymentMethod, setPaymentMethod] = useState<ProcessPaymentRequest['payment_method']>('cash')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>()
@@ -57,6 +59,8 @@ export function SalesWorkspace() {
   const createOrder = useMutation({
     mutationFn: () => apiClient.createOrder({
       order_type: orderType,
+      fulfillment_type: orderType === 'sale' ? fulfillmentType : undefined,
+      payment_method: orderType === 'sale' && fulfillmentType !== 'cash_on_delivery' ? paymentMethod : undefined,
       customer_id: selectedCustomerId,
       customer_name: customerName.trim() || undefined,
       customer_phone: customerPhone.trim() || undefined,
@@ -78,6 +82,9 @@ export function SalesWorkspace() {
       queryClient.invalidateQueries({ queryKey: ['repair-orders'] })
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['salesReport'] })
+      queryClient.invalidateQueries({ queryKey: ['incomeReport'] })
     },
     onError: (error) => toastHelpers.apiError('Create transaction', error),
   })
@@ -91,10 +98,12 @@ export function SalesWorkspace() {
   })
 
   const addToCart = (product: Product) => {
+    if (product.item_type === 'product' && product.stock_quantity <= 0) return
     if (product.item_type === 'service') setOrderType('service')
     setCart((lines) => {
       const existing = lines.find((line) => line.product.id === product.id)
       if (!existing) return [...lines, { product, quantity: 1 }]
+      if (product.item_type === 'product' && existing.quantity >= product.stock_quantity) return lines
       return lines.map((line) => line.product.id === product.id
         ? { ...line, quantity: line.quantity + 1 }
         : line)
@@ -112,7 +121,8 @@ export function SalesWorkspace() {
   const subtotal = cart.reduce((total, line) => total + line.product.price * line.quantity, 0)
   const itemCount = cart.reduce((total, line) => total + line.quantity, 0)
   const hasServiceContact = customerName.trim().length > 0 && customerPhone.trim().length > 0
-  const canSubmit = cart.length > 0 && (orderType === 'sale' || hasServiceContact)
+  const needsDeliveryContact = orderType === 'sale' && (fulfillmentType === 'delivery' || fulfillmentType === 'cash_on_delivery')
+  const canSubmit = cart.length > 0 && (orderType === 'sale' ? !needsDeliveryContact || hasServiceContact : hasServiceContact)
 
   const selectCustomer = (customer: Customer) => {
     setSelectedCustomerId(customer.id)
@@ -127,7 +137,7 @@ export function SalesWorkspace() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Sales & Services</h1>
-            <p className="mt-1 text-muted-foreground">Sell computer products or create a customer repair ticket.</p>
+            <p className="mt-1 text-muted-foreground">Sell products, arrange delivery, or create a customer repair ticket.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -204,9 +214,14 @@ export function SalesWorkspace() {
                       <div className="mt-1 text-sm font-bold">{formatMoney(product.price)}</div>
                       {product.description && <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{product.description}</p>}
                       <div className="mt-1.5 truncate text-[11px] text-muted-foreground">
-                        {product.category?.name || 'Uncategorized'} · {product.item_type === 'service' ? 'Service' : `${product.stock_quantity} in stock`}
-                        {product.preparation_time > 0 && ` · ${Math.max(1, Math.ceil(product.preparation_time / 1440))}d`}
+                        {product.category?.name || 'Uncategorized'}
+                        {product.item_type === 'service' && ` · Service${product.preparation_time > 0 ? ` · ${Math.max(1, Math.ceil(product.preparation_time / 1440))}d` : ''}`}
                       </div>
+                      {product.item_type === 'product' && (
+                        <div className={`mt-0.5 text-[11px] font-semibold ${product.stock_quantity > 0 ? 'text-emerald-600' : product.preorder_enabled ? 'text-amber-600' : 'text-red-600'}`}>
+                          {product.stock_quantity > 0 ? `In stock · ${product.stock_quantity}` : product.preorder_enabled ? 'Pre-order' : 'Out of stock'}
+                        </div>
+                      )}
                       <div className="mt-auto flex items-center justify-end gap-1.5 pt-2">
                         {quantity > 0 && (
                           <>
@@ -214,7 +229,7 @@ export function SalesWorkspace() {
                             <span className="w-5 text-center text-sm font-semibold">{quantity}</span>
                           </>
                         )}
-                        <Button size="sm" className={quantity > 0 ? 'h-8 w-8 p-0' : 'h-8 px-3'} onClick={() => addToCart(product)} disabled={!product.is_available}>
+                        <Button size="sm" className={quantity > 0 ? 'h-8 w-8 p-0' : 'h-8 px-3'} onClick={() => addToCart(product)} disabled={!product.is_available || (product.item_type === 'product' && (product.stock_quantity <= 0 || quantity >= product.stock_quantity))}>
                           <Plus className="h-3.5 w-3.5" />{quantity === 0 && <span className="ml-1.5">Add</span>}
                         </Button>
                       </div>
@@ -237,9 +252,35 @@ export function SalesWorkspace() {
                 <Badge variant="secondary">{itemCount} item{itemCount === 1 ? '' : 's'}</Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {orderType === 'service' ? 'Customer name and phone are required for service work.' : 'Customer details are optional for product sales.'}
+                {orderType === 'service' ? 'Customer name and phone are required for service work.' : needsDeliveryContact ? 'Customer name and phone are required for delivery.' : 'Customer details are optional for counter sales.'}
               </p>
             </div>
+
+            {orderType === 'sale' && (
+              <div className="space-y-3 rounded-lg border bg-slate-50 p-3">
+                <div className="text-sm font-semibold">How will the customer receive it?</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ['in_store', 'Instant sale'],
+                    ['pickup', 'Customer pickup'],
+                    ['delivery', 'Delivery · paid now'],
+                    ['cash_on_delivery', 'Cash on delivery'],
+                  ].map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => setFulfillmentType(value as typeof fulfillmentType)} className={`rounded-md border px-2.5 py-2 text-left text-xs font-medium ${fulfillmentType === value ? 'border-slate-900 bg-slate-900 text-white' : 'bg-white hover:border-slate-400'}`}>{label}</button>
+                  ))}
+                </div>
+                {fulfillmentType !== 'cash_on_delivery' ? (
+                  <label className="block text-xs font-medium text-slate-700">Payment received by
+                    <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as ProcessPaymentRequest['payment_method'])} className="mt-1 h-9 w-full rounded-md border bg-white px-2 text-sm">
+                      <option value="cash">Cash</option>
+                      <option value="credit_card">Credit card</option>
+                      <option value="debit_card">Debit card</option>
+                      <option value="digital_wallet">Bank transfer / digital wallet</option>
+                    </select>
+                  </label>
+                ) : <p className="text-xs text-amber-700">Payment remains due until you mark it received in Product Orders.</p>}
+              </div>
+            )}
 
             <div className="space-y-3">
               <div className="relative">

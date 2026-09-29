@@ -42,6 +42,7 @@ type Product struct {
 	Price           float64    `json:"price"`
 	CostPrice       float64    `json:"cost_price"`
 	ItemType        string     `json:"item_type"` // product, service
+	PreorderEnabled bool       `json:"preorder_enabled"`
 	ImageURL        *string    `json:"image_url"`
 	Images          []string   `json:"images"`
 	Barcode         *string    `json:"barcode"`
@@ -97,28 +98,31 @@ type DiningTable struct {
 
 // Order represents a customer order
 type Order struct {
-	ID             uuid.UUID    `json:"id"`
-	OrderNumber    string       `json:"order_number"`
-	TableID        *uuid.UUID   `json:"table_id"`
-	UserID         *uuid.UUID   `json:"user_id"`
-	CustomerID     *uuid.UUID   `json:"customer_id"`
-	CustomerName   *string      `json:"customer_name"`
-	CustomerPhone  *string      `json:"customer_phone"`
-	OrderType      string       `json:"order_type"` // sale, service
-	Status         string       `json:"status"`     // pending, confirmed, preparing, ready, served, completed, cancelled
-	Subtotal       float64      `json:"subtotal"`
-	TaxAmount      float64      `json:"tax_amount"`
-	DiscountAmount float64      `json:"discount_amount"`
-	TotalAmount    float64      `json:"total_amount"`
-	Notes          *string      `json:"notes"`
-	CreatedAt      time.Time    `json:"created_at"`
-	UpdatedAt      time.Time    `json:"updated_at"`
-	ServedAt       *time.Time   `json:"served_at"`
-	CompletedAt    *time.Time   `json:"completed_at"`
-	Table          *DiningTable `json:"table,omitempty"`
-	User           *User        `json:"user,omitempty"`
-	Items          []OrderItem  `json:"items,omitempty"`
-	Payments       []Payment    `json:"payments,omitempty"`
+	ID                uuid.UUID    `json:"id"`
+	OrderNumber       string       `json:"order_number"`
+	TableID           *uuid.UUID   `json:"table_id"`
+	UserID            *uuid.UUID   `json:"user_id"`
+	CustomerID        *uuid.UUID   `json:"customer_id"`
+	CustomerName      *string      `json:"customer_name"`
+	CustomerPhone     *string      `json:"customer_phone"`
+	OrderType         string       `json:"order_type"` // sale, service
+	Status            string       `json:"status"`     // pending, confirmed, preparing, ready, served, completed, cancelled
+	FulfillmentType   string       `json:"fulfillment_type"`
+	FulfillmentStatus string       `json:"fulfillment_status"`
+	StockCommitted    bool         `json:"stock_committed"`
+	Subtotal          float64      `json:"subtotal"`
+	TaxAmount         float64      `json:"tax_amount"`
+	DiscountAmount    float64      `json:"discount_amount"`
+	TotalAmount       float64      `json:"total_amount"`
+	Notes             *string      `json:"notes"`
+	CreatedAt         time.Time    `json:"created_at"`
+	UpdatedAt         time.Time    `json:"updated_at"`
+	ServedAt          *time.Time   `json:"served_at"`
+	CompletedAt       *time.Time   `json:"completed_at"`
+	Table             *DiningTable `json:"table,omitempty"`
+	User              *User        `json:"user,omitempty"`
+	Items             []OrderItem  `json:"items,omitempty"`
+	Payments          []Payment    `json:"payments,omitempty"`
 }
 
 // OrderItem represents an item within an order
@@ -181,13 +185,20 @@ type OrderStatusHistory struct {
 
 // CreateOrderRequest represents the request to create a new order
 type CreateOrderRequest struct {
-	TableID       *uuid.UUID        `json:"table_id"`
-	CustomerID    *uuid.UUID        `json:"customer_id"`
-	CustomerName  *string           `json:"customer_name"`
-	CustomerPhone *string           `json:"customer_phone"`
-	OrderType     string            `json:"order_type"`
-	Items         []CreateOrderItem `json:"items"`
-	Notes         *string           `json:"notes"`
+	TableID         *uuid.UUID        `json:"table_id"`
+	CustomerID      *uuid.UUID        `json:"customer_id"`
+	CustomerName    *string           `json:"customer_name"`
+	CustomerPhone   *string           `json:"customer_phone"`
+	OrderType       string            `json:"order_type"`
+	FulfillmentType string            `json:"fulfillment_type"`
+	PaymentMethod   *string           `json:"payment_method"`
+	Items           []CreateOrderItem `json:"items"`
+	Notes           *string           `json:"notes"`
+}
+
+// UpdateFulfillmentRequest moves a physical-product order through delivery.
+type UpdateFulfillmentRequest struct {
+	Status string `json:"status"`
 }
 
 // CreateOrderItem represents an item in the order creation request

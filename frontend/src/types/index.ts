@@ -119,6 +119,7 @@ export interface Product {
   price: number;
   cost_price: number;
   item_type: 'product' | 'service';
+  preorder_enabled: boolean;
   image_url?: string;
   images: string[];
   barcode?: string;
@@ -154,6 +155,48 @@ export interface CustomerInput {
   notes?: string;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  phone?: string;
+  location?: string;
+  notes?: string;
+  credit_allowed: boolean;
+  total_purchases: number;
+  total_paid: number;
+  outstanding_debt: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierInput {
+  name: string;
+  phone?: string;
+  location?: string;
+  notes?: string;
+  credit_allowed: boolean;
+}
+
+export interface SupplierPurchase {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  reference_number?: string;
+  total_amount: number;
+  amount_paid: number;
+  balance: number;
+  notes?: string;
+  purchased_at: string;
+}
+
+export interface SupplierPurchaseInput {
+  supplier_id: string;
+  reference_number?: string;
+  amount_paid: number;
+  notes?: string;
+  items: Array<{ product_id: string; quantity: number; unit_cost: number }>;
+}
+
 // Order Types
 export interface Order {
   id: string;
@@ -164,6 +207,9 @@ export interface Order {
   customer_phone?: string;
   order_type: 'sale' | 'service';
   status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
+  fulfillment_type: 'in_store' | 'pickup' | 'delivery' | 'cash_on_delivery' | 'service';
+  fulfillment_status: 'service' | 'pending_packing' | 'packed' | 'with_courier' | 'delivered' | 'completed';
+  stock_committed: boolean;
   subtotal: number;
   tax_amount: number;
   discount_amount: number;
@@ -199,6 +245,8 @@ export interface CreateOrderRequest {
   customer_name?: string;
   customer_phone?: string;
   order_type: 'sale' | 'service';
+  fulfillment_type?: 'in_store' | 'pickup' | 'delivery' | 'cash_on_delivery';
+  payment_method?: ProcessPaymentRequest['payment_method'];
   items: CreateOrderItem[];
   notes?: string;
 }
@@ -262,6 +310,7 @@ export interface Cart {
 export interface DashboardStats {
   today_orders: number;
   today_revenue: number;
+  today_profit: number;
   active_orders: number;
   open_repairs: number;
 }
