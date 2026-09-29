@@ -194,6 +194,11 @@ class APIClient {
     return this.request({ method: 'POST', url: `/admin/suppliers/${id}/payments`, data: input });
   }
 
+  async getSupplierTransactionReference(type: SupplierTransaction['type'], id: string): Promise<Blob> {
+    const response = await this.client.get(`/admin/supplier-transactions/${type}/${id}/reference.pdf`, { responseType: 'blob' });
+    return response.data;
+  }
+
   // Order endpoints
   async getOrders(filters?: OrderFilters): Promise<PaginatedResponse<Order[]>> {
     return this.request({

@@ -1,6 +1,6 @@
 # Product orders and supply chain
 
-Sources: [`raw/2026-09-29-product-sales-and-supply-chain-request.md`](../raw/2026-09-29-product-sales-and-supply-chain-request.md), [`raw/2026-09-29-catalog-supplier-link-and-payment-attachments.md`](../raw/2026-09-29-catalog-supplier-link-and-payment-attachments.md)
+Sources: [`raw/2026-09-29-product-sales-and-supply-chain-request.md`](../raw/2026-09-29-product-sales-and-supply-chain-request.md), [`raw/2026-09-29-catalog-supplier-link-and-payment-attachments.md`](../raw/2026-09-29-catalog-supplier-link-and-payment-attachments.md), [`raw/2026-09-29-supplier-generated-reference-request.md`](../raw/2026-09-29-supplier-generated-reference-request.md)
 
 ## Product-sale transaction rule
 
@@ -32,6 +32,8 @@ A product checkout is atomic: it validates available stock, saves or links the c
 - Non-credit suppliers force the initial purchase to be paid in full. Credit-enabled suppliers permit full, partial, or zero payment and carry the difference as outstanding debt.
 - Purchase and payment records are separate append-only timeline events. Every later debt payment remains visible with its own date and time rather than only changing an aggregate paid total.
 - Purchases and payments may each reference an optional PDF or image receipt. These files are stored with the installation uploads and therefore participate in native backup/restore.
+- Every purchase or payment without an uploaded document exposes a compact, generated PDF reference from transaction history. It is generated on demand from the ledger rather than stored, so old transactions gain the feature and backups do not accumulate duplicate PDFs.
+- A generated reference is explicitly labeled as an internal transaction reference, not a supplier-issued invoice or tax document. Uploaded evidence remains the primary document when present.
 
 ## Catalog stock labels
 

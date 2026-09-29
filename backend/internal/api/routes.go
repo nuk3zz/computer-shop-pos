@@ -113,6 +113,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.PUT("/suppliers/:id", supplyChainHandler.UpdateSupplier)
 		admin.POST("/supplier-purchases", supplyChainHandler.CreatePurchase)
 		admin.POST("/suppliers/:id/payments", supplyChainHandler.CreatePayment)
+		admin.GET("/supplier-transactions/:type/:id/reference.pdf", supplyChainHandler.GetTransactionReferencePDF)
 
 		// User management with pagination
 		admin.GET("/users", getAdminUsers(db)) // Update with pagination

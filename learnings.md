@@ -262,3 +262,18 @@
 - Opening stock can be linked to a supplier during catalog creation by creating the catalog row at zero stock and then using the supplier-purchase path to add stock once. On purchase failure, the newly created catalog row is removed so a misleading unlinked item is not left behind.
 - Supplier purchase summaries describe the payment made at purchase time; later unallocated supplier-level payments must not be presented as if they changed that historical initial-payment field. A separate append-only transaction history now shows the purchase and every payment with its own timestamp.
 - Optional supplier evidence accepts inspected PDF/JPG/PNG/WebP files up to 10 MB. The database stores only application-owned `/uploads/supplier-documents/` paths, and native backup/restore already includes the uploads tree.
+
+## 2026-09-29 - Updater bootstrap distinction
+
+- An installation still displaying `Version v0.3.3` and `Open installer download` is running the old updater UI; publishing v0.3.4 does not modify an already-running local binary.
+- v0.3.4 must be installed manually once to acquire the verified background downloader. On this macOS installation, v0.3.4 then runs at `localhost:3210` to avoid the existing port-3000 conflict.
+- The built-in updater downloads and verifies future packages and opens the operating-system installer, but macOS and Windows installation approval cannot be silently bypassed.
+- Browser choice is unrelated to service availability: Safari opened the installer-provided `localhost:3210` URL, while an old Chrome bookmark at `localhost:3000` reached an Adobe CEP listener and displayed a blank response. All browsers must use port 3210 for this macOS installation.
+
+## 2026-09-29 - Lightweight supplier transaction references
+
+- Supplier purchases and payments without uploaded evidence now expose a deterministic generated reference. The PDF is produced on demand from the saved ledger, so existing entries gain the feature without database migration or duplicate backup files.
+- Generated documents are explicitly labeled as internal references rather than supplier invoices or tax documents. Uploaded invoices and screenshots remain the primary evidence when present.
+- The A5 purchase reference includes the shop, supplier, transaction ID, timestamp, supplier reference, item quantities/costs, linked purchase payment, balance, and notes. A verified sample rendered as one page at about 2.1 KB.
+- Embedded browser PDF plug-ins are inconsistent for blob URLs. The reliable UI is a compact in-app metadata preview followed by direct Open PDF and Download PDF links; this also avoids automatic popup blocking during generation.
+- Automated tests verify the generated response is a valid lightweight PDF, and visual rendering plus text extraction verified alignment and content before release.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, ExternalLink, MapPin, PackagePlus, Paperclip, Pencil, Phone, Plus, Save, Trash2, Warehouse } from 'lucide-react'
+import { Banknote, ExternalLink, FileText, MapPin, PackagePlus, Paperclip, Pencil, Phone, Plus, Save, Trash2, Warehouse } from 'lucide-react'
 import apiClient from '@/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatMoney } from '@/lib/shop-settings'
 import { toastHelpers } from '@/lib/toast-helpers'
 import { getMediaUrl } from '@/lib/media'
-import type { Supplier, SupplierInput } from '@/types'
+import type { Supplier, SupplierInput, SupplierTransaction } from '@/types'
 
 type PurchaseLine = { product_id: string; quantity: number; unit_cost: number }
 const emptySupplier: SupplierInput = { name: '', phone: '', location: '', notes: '', credit_allowed: false }
@@ -31,6 +31,8 @@ export function SupplyChain() {
   const [debtPayment, setDebtPayment] = useState(0)
   const [debtNotes, setDebtNotes] = useState('')
   const [debtAttachment, setDebtAttachment] = useState<File | null>(null)
+  const [openingReference, setOpeningReference] = useState('')
+  const [referencePreview, setReferencePreview] = useState<{ url: string; transaction: SupplierTransaction } | null>(null)
 
   const { data: suppliers = [], isLoading } = useQuery({ queryKey: ['suppliers'], queryFn: () => apiClient.getSuppliers().then((response) => response.data || []) })
   const { data: purchases = [] } = useQuery({ queryKey: ['supplier-purchases'], queryFn: () => apiClient.getSupplierPurchases().then((response) => response.data || []) })
@@ -40,6 +42,10 @@ export function SupplyChain() {
   useEffect(() => {
     if (!selectedSupplierID && suppliers.length > 0) setSelectedSupplierID(suppliers[0].id)
   }, [selectedSupplierID, suppliers])
+
+  useEffect(() => () => {
+    if (referencePreview) URL.revokeObjectURL(referencePreview.url)
+  }, [referencePreview])
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['suppliers'] })
@@ -80,6 +86,20 @@ export function SupplyChain() {
   const editSupplier = (supplier: Supplier) => {
     setEditingSupplier(supplier)
     setSupplierForm({ name: supplier.name, phone: supplier.phone || '', location: supplier.location || '', notes: supplier.notes || '', credit_allowed: supplier.credit_allowed })
+  }
+
+  const openGeneratedReference = async (transaction: SupplierTransaction) => {
+    const transactionKey = `${transaction.type}-${transaction.id}`
+    setOpeningReference(transactionKey)
+    try {
+      const document = await apiClient.getSupplierTransactionReference(transaction.type, transaction.id)
+      const documentURL = URL.createObjectURL(document)
+      setReferencePreview({ url: documentURL, transaction })
+    } catch (error) {
+      toastHelpers.apiError('Open transaction reference', error)
+    } finally {
+      setOpeningReference('')
+    }
   }
 
   return (
@@ -133,13 +153,19 @@ export function SupplyChain() {
 
       <Card><CardHeader><CardTitle>Purchase records</CardTitle></CardHeader><CardContent>{purchases.length === 0 ? <p className="text-sm text-muted-foreground">No supplier purchases yet.</p> : <div className="divide-y rounded-lg border">{purchases.map((purchase) => <div key={purchase.id} className="grid gap-2 p-3 text-sm sm:grid-cols-4"><div><div className="font-medium">{purchase.supplier_name}</div><div className="text-xs text-muted-foreground">{new Date(purchase.purchased_at).toLocaleString()}</div></div><div>Purchase<br /><strong>{formatMoney(purchase.total_amount)}</strong></div><div>Paid at purchase<br /><strong>{formatMoney(purchase.amount_paid)}</strong></div><div className={purchase.balance > 0 ? 'text-amber-700' : 'text-emerald-700'}>Credit created<br /><strong>{formatMoney(purchase.balance)}</strong></div></div>)}</div>}</CardContent></Card>
 
-      <Card><CardHeader><CardTitle>Supplier transaction history</CardTitle></CardHeader><CardContent>{transactions.length === 0 ? <p className="text-sm text-muted-foreground">No purchase or payment activity yet.</p> : <div className="divide-y rounded-lg border">{transactions.map((transaction) => <div key={`${transaction.type}-${transaction.id}`} className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm"><div><div className="font-medium">{transaction.supplier_name}</div><div className="text-xs text-muted-foreground">{new Date(transaction.occurred_at).toLocaleString()}{transaction.notes ? ` · ${transaction.notes}` : ''}</div></div><div className="flex items-center gap-3"><div className={transaction.type === 'payment' ? 'font-semibold text-emerald-700' : 'font-semibold text-slate-900'}>{transaction.type === 'payment' ? 'Payment' : 'Purchase'} · {formatMoney(transaction.amount)}</div>{transaction.attachment_url && <a href={getMediaUrl(transaction.attachment_url)} target="_blank" rel="noreferrer" className="inline-flex items-center text-blue-700 underline"><Paperclip className="mr-1 h-3.5 w-3.5" />Attachment<ExternalLink className="ml-1 h-3 w-3" /></a>}</div></div>)}</div>}</CardContent></Card>
+      <Card><CardHeader><CardTitle>Supplier transaction history</CardTitle></CardHeader><CardContent>{transactions.length === 0 ? <p className="text-sm text-muted-foreground">No purchase or payment activity yet.</p> : <div className="divide-y rounded-lg border">{transactions.map((transaction) => {
+        const transactionKey = `${transaction.type}-${transaction.id}`
+        return <div key={transactionKey} className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm"><div><div className="font-medium">{transaction.supplier_name}</div><div className="text-xs text-muted-foreground">{new Date(transaction.occurred_at).toLocaleString()}{transaction.notes ? ` · ${transaction.notes}` : ''}</div></div><div className="flex items-center gap-3"><div className={transaction.type === 'payment' ? 'font-semibold text-emerald-700' : 'font-semibold text-slate-900'}>{transaction.type === 'payment' ? 'Payment' : 'Purchase'} · {formatMoney(transaction.amount)}</div>{transaction.attachment_url ? <a href={getMediaUrl(transaction.attachment_url)} target="_blank" rel="noreferrer" className="inline-flex items-center text-blue-700 underline"><Paperclip className="mr-1 h-3.5 w-3.5" />View attachment<ExternalLink className="ml-1 h-3 w-3" /></a> : <button type="button" disabled={openingReference === transactionKey} onClick={() => openGeneratedReference(transaction)} className="inline-flex items-center text-blue-700 underline disabled:opacity-50"><FileText className="mr-1 h-3.5 w-3.5" />{openingReference === transactionKey ? 'Generating…' : 'View reference'}</button>}</div></div>
+      })}</div>}</CardContent></Card>
 
       {payingSupplier && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><Card className="w-full max-w-md"><CardHeader><CardTitle>Pay {payingSupplier.name}</CardTitle></CardHeader><CardContent className="space-y-4"><p className="text-sm text-muted-foreground">Outstanding debt: {formatMoney(payingSupplier.outstanding_debt)}</p><Field label="Payment amount"><Input type="number" min="0.01" max={payingSupplier.outstanding_debt} step="0.01" value={debtPayment} onChange={(event) => setDebtPayment(Number(event.target.value))} /></Field><Field label="Payment note (optional)"><Input value={debtNotes} onChange={(event) => setDebtNotes(event.target.value)} placeholder="Example: bank transfer" /></Field><AttachmentInput file={debtAttachment} onChange={setDebtAttachment} /><div className="flex gap-2"><Button disabled={debtPayment <= 0 || debtPayment > payingSupplier.outstanding_debt || payDebt.isPending} onClick={() => payDebt.mutate()}><Banknote className="mr-2 h-4 w-4" />Record payment</Button><Button variant="outline" onClick={() => setPayingSupplier(null)}>Cancel</Button></div></CardContent></Card></div>}
+      {referencePreview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl"><div className="border-b px-5 py-4"><div className="text-lg font-semibold">Supplier {referencePreview.transaction.type} reference</div><p className="mt-1 text-xs text-muted-foreground">Internal transaction reference - not a supplier-issued invoice or tax document.</p></div><div className="space-y-3 px-5 py-5 text-sm"><ReferenceRow label="Reference" value={generatedReferenceLabel(referencePreview.transaction)} /><ReferenceRow label="Supplier" value={referencePreview.transaction.supplier_name} /><ReferenceRow label="Transaction" value={referencePreview.transaction.type === 'purchase' ? 'Stock purchase' : 'Supplier payment'} /><ReferenceRow label="Amount" value={formatMoney(referencePreview.transaction.amount)} /><ReferenceRow label="Date / time" value={new Date(referencePreview.transaction.occurred_at).toLocaleString()} />{referencePreview.transaction.notes && <ReferenceRow label="Notes" value={referencePreview.transaction.notes} />}</div><div className="flex flex-wrap justify-end gap-2 border-t px-5 py-4"><Button variant="outline" size="sm" onClick={() => setReferencePreview(null)}>Close</Button><Button variant="outline" size="sm" asChild><a href={referencePreview.url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1.5 h-3.5 w-3.5" />Open PDF</a></Button><Button size="sm" asChild><a href={referencePreview.url} download={`supplier-${referencePreview.transaction.type}-${referencePreview.transaction.id.slice(0, 8)}.pdf`}><FileText className="mr-1.5 h-3.5 w-3.5" />Download PDF</a></Button></div></div></div>}
     </div>
   )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block text-sm font-medium"><span className="mb-1.5 block">{label}</span>{children}</label> }
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) { return <div><div className="text-xs text-muted-foreground">{label}</div><div className={`mt-1 font-semibold ${danger ? 'text-amber-700' : ''}`}>{value}</div></div> }
+function ReferenceRow({ label, value }: { label: string; value: string }) { return <div className="grid grid-cols-[110px_1fr] gap-3"><div className="text-muted-foreground">{label}</div><div className="break-words font-medium">{value}</div></div> }
+function generatedReferenceLabel(transaction: SupplierTransaction) { return `SUP-${transaction.type === 'purchase' ? 'PUR' : 'PAY'}-${transaction.id.replace(/-/g, '').slice(0, 10).toUpperCase()}` }
 function AttachmentInput({ file, onChange }: { file: File | null; onChange: (file: File | null) => void }) { return <label className="block text-sm font-medium"><span className="mb-1.5 block">Invoice / receipt attachment (optional)</span><Input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => onChange(event.target.files?.[0] || null)} /><span className="mt-1 block text-xs font-normal text-muted-foreground">PDF or screenshot, maximum 10 MB{file ? ` · ${file.name}` : ''}</span></label> }
