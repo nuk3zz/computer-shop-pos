@@ -270,6 +270,13 @@ func (h *MaintenanceHandler) downloadAndVerify(ctx context.Context, asset update
 		return "", err
 	}
 	finalPath := filepath.Join(updatesDir, filepath.Base(asset.Name))
+	// Installer.app validates that a package has not changed between opening it
+	// and receiving administrator approval. Reuse an already verified download
+	// so a repeated click cannot replace the package while Installer is reading
+	// it and trigger "Opened package is not the same at install time".
+	if installerMatchesAsset(finalPath, asset) {
+		return finalPath, nil
+	}
 	tempPath := finalPath + ".download"
 	_ = os.Remove(tempPath)
 	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, asset.DownloadURL, nil)
@@ -304,6 +311,27 @@ func (h *MaintenanceHandler) downloadAndVerify(ctx context.Context, asset update
 		return "", err
 	}
 	return finalPath, nil
+}
+
+func installerMatchesAsset(path string, asset updateAsset) bool {
+	expectedDigest := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(asset.Digest)), "sha256:")
+	if len(expectedDigest) != 64 || asset.Size <= 0 {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Size() != asset.Size {
+		return false
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return false
+	}
+	return hex.EncodeToString(hash.Sum(nil)) == expectedDigest
 }
 
 func selectUpdateAsset(release githubRelease, goos, goarch string) (updateAsset, bool) {

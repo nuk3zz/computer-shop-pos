@@ -258,10 +258,17 @@
 - The built-in updater creates a safety backup, selects the operating-system-specific GitHub Release asset, limits its size, verifies the release SHA-256 digest, and then opens the macOS/Windows installer or returns an explicit Linux `sudo apt install` command. Semantic comparison prevents an older release from being offered as an update.
 - Minimal Linux systems need the CA certificate bundle for TLS-verified GitHub update checks; the Debian package now declares it.
 - A card with only `cursor-pointer` is not an action. Dashboard shortcut cards and header controls now use real TanStack Router links, which were click-tested in an isolated v0.3.4 native build.
+
 - Dashboard financial color semantics are purple for customer money collected, red for product/service cost, and green for gross profit.
 - Opening stock can be linked to a supplier during catalog creation by creating the catalog row at zero stock and then using the supplier-purchase path to add stock once. On purchase failure, the newly created catalog row is removed so a misleading unlinked item is not left behind.
 - Supplier purchase summaries describe the payment made at purchase time; later unallocated supplier-level payments must not be presented as if they changed that historical initial-payment field. A separate append-only transaction history now shows the purchase and every payment with its own timestamp.
 - Optional supplier evidence accepts inspected PDF/JPG/PNG/WebP files up to 10 MB. The database stores only application-owned `/uploads/supplier-documents/` paths, and native backup/restore already includes the uploads tree.
+
+## 2026-09-29 - macOS updater package immutability
+
+- macOS Installer records the package it opens and rejects it if that file is replaced before administrator approval. The failure appears as “no software found to install,” while `/var/log/install.log` exposes the real cause as `Opened package is not the same at install time`.
+- Two successful updater POST requests were recorded while the first Installer window was still open. The second download atomically replaced the same versioned package path and caused the failure.
+- Update downloads now treat a matching local file as immutable and reusable only after checking both the release size and SHA-256 digest. A repeated click reopens the same verified file instead of replacing it.
 
 ## 2026-09-29 - Updater bootstrap distinction
 

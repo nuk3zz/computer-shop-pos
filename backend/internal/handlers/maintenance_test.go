@@ -2,9 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"pos-backend/internal/database"
@@ -122,5 +127,64 @@ func TestIsVersionNewerRejectsDowngrades(t *testing.T) {
 		if got := isVersionNewer(test.candidate, test.current); got != test.want {
 			t.Fatalf("isVersionNewer(%q, %q) = %v, want %v", test.candidate, test.current, got, test.want)
 		}
+	}
+}
+
+func TestInstallerMatchesAssetReusesOnlyVerifiedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update.pkg")
+	payload := []byte("verified installer payload")
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(payload)
+	asset := updateAsset{Size: int64(len(payload)), Digest: "sha256:" + hex.EncodeToString(digest[:])}
+	if !installerMatchesAsset(path, asset) {
+		t.Fatal("expected verified installer to be reusable")
+	}
+	asset.Size++
+	if installerMatchesAsset(path, asset) {
+		t.Fatal("installer with a mismatched size must not be reused")
+	}
+	asset.Size--
+	asset.Digest = "sha256:" + strings.Repeat("0", 64)
+	if installerMatchesAsset(path, asset) {
+		t.Fatal("installer with a mismatched digest must not be reused")
+	}
+}
+
+func TestDownloadAndVerifyDoesNotReplaceMatchingInstaller(t *testing.T) {
+	dataDir := t.TempDir()
+	updatesDir := filepath.Join(dataDir, "updates")
+	if err := os.MkdirAll(updatesDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("installer already open in the operating-system installer")
+	digest := sha256.Sum256(payload)
+	asset := updateAsset{
+		Name:        "Universal-Repair-POS-v0.3.6-macOS-Universal.pkg",
+		DownloadURL: "https://github.com/not-called-because-the-file-is-verified",
+		Digest:      "sha256:" + hex.EncodeToString(digest[:]),
+		Size:        int64(len(payload)),
+	}
+	path := filepath.Join(updatesDir, asset.Name)
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := NewMaintenanceHandler(nil, dataDir, filepath.Join(dataDir, "uploads"), "v0.3.5")
+	returnedPath, err := handler.downloadAndVerify(context.Background(), asset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if returnedPath != path || !os.SameFile(before, after) {
+		t.Fatal("matching installer was replaced instead of reused")
 	}
 }
