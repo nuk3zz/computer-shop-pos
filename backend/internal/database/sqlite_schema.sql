@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS supplier_purchases (
     reference_number TEXT,
     total_amount NUMERIC NOT NULL DEFAULT 0,
     notes TEXT,
+    attachment_url TEXT,
     purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -200,6 +201,7 @@ CREATE TABLE IF NOT EXISTS supplier_payments (
     purchase_id TEXT REFERENCES supplier_purchases(id) ON DELETE SET NULL,
     amount NUMERIC NOT NULL CHECK (amount > 0),
     notes TEXT,
+    attachment_url TEXT,
     paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

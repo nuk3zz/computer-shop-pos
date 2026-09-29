@@ -14,3 +14,4 @@
 - [Public documentation privacy](public-documentation-privacy.md) - rules for keeping owner and device details out of the public repository.
 - [iPad and macOS distribution](ipad-and-macos-distribution.md) - Home Screen installation, network requirements, and the universal macOS package.
 - [Product orders and supply chain](product-orders-and-supply-chain.md) - stock-safe sales, delivery/COD tracking, supplier purchases, and debt.
+- [Dashboard navigation](dashboard-navigation.md) - clickable dashboard shortcuts and the financial color language.

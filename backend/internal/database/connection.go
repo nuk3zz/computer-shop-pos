@@ -65,6 +65,8 @@ func connectPostgres(config Config) (*sql.DB, error) {
 		CREATE TABLE IF NOT EXISTS supplier_purchases (id UUID PRIMARY KEY, supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT, reference_number VARCHAR(100), total_amount NUMERIC(12,2) NOT NULL DEFAULT 0, notes TEXT, purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
 		CREATE TABLE IF NOT EXISTS supplier_purchase_items (id UUID PRIMARY KEY, purchase_id UUID NOT NULL REFERENCES supplier_purchases(id) ON DELETE CASCADE, product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT, quantity INTEGER NOT NULL CHECK (quantity > 0), unit_cost NUMERIC(12,2) NOT NULL CHECK (unit_cost >= 0), total_cost NUMERIC(12,2) NOT NULL CHECK (total_cost >= 0));
 		CREATE TABLE IF NOT EXISTS supplier_payments (id UUID PRIMARY KEY, supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT, purchase_id UUID REFERENCES supplier_purchases(id) ON DELETE SET NULL, amount NUMERIC(12,2) NOT NULL CHECK (amount > 0), notes TEXT, paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		ALTER TABLE supplier_purchases ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+		ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS attachment_url TEXT;
 		CREATE INDEX IF NOT EXISTS idx_supplier_purchases_supplier ON supplier_purchases(supplier_id, purchased_at);
 		CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id, paid_at);
 	`); err != nil {
@@ -133,6 +135,8 @@ func applySQLiteCompatibilityMigrations(db *sql.DB) error {
 		{"orders", "fulfillment_type", "TEXT NOT NULL DEFAULT 'in_store'"},
 		{"orders", "fulfillment_status", "TEXT NOT NULL DEFAULT 'completed'"},
 		{"orders", "stock_committed", "BOOLEAN NOT NULL DEFAULT 0"},
+		{"supplier_purchases", "attachment_url", "TEXT"},
+		{"supplier_payments", "attachment_url", "TEXT"},
 	}
 	for _, migration := range columns {
 		exists, err := sqliteColumnExists(db, migration.table, migration.column)
@@ -151,7 +155,7 @@ func applySQLiteCompatibilityMigrations(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(order_type, fulfillment_status)`); err != nil {
 		return err
 	}
-	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (5)`)
+	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (6)`)
 	return err
 }
 

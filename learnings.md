@@ -250,3 +250,15 @@
 - A disposable native SQLite runtime proved stock decrement, client persistence, LKR 15,000 sales collected, LKR 5,000 gross profit, explicit pre-order persistence, supplier stock receipt, debt repayment, COD completion, and non-credit rollback.
 - A copy of a pre-feature native database started successfully and gained the fulfillment, stock-commit, and pre-order columns through additive migration.
 - Before repairing the one known live sale, a checksum-verified recovery set was saved under `Documents/Universal Repair POS/backups/recovery-20260929-150610`; the exact order was then completed, paid, and its stock changed from one to zero.
+
+## 2026-09-29 - Built-in updates, dashboard links, and supplier evidence
+
+- A macOS installer can succeed while its LaunchAgent remains unloaded; post-install must retry `launchctl bootstrap`, kick-start the service, wait for a real health response, and leave a diagnostic log instead of silently opening a dead URL.
+- Port 3000 was also occupied by an Adobe CEP extension on this machine. The macOS package now uses port 3210 while Windows, Linux, and Docker retain port 3000, and the system-information response derives its localhost port from the active request.
+- The built-in updater creates a safety backup, selects the operating-system-specific GitHub Release asset, limits its size, verifies the release SHA-256 digest, and then opens the macOS/Windows installer or returns an explicit Linux `sudo apt install` command. Semantic comparison prevents an older release from being offered as an update.
+- Minimal Linux systems need the CA certificate bundle for TLS-verified GitHub update checks; the Debian package now declares it.
+- A card with only `cursor-pointer` is not an action. Dashboard shortcut cards and header controls now use real TanStack Router links, which were click-tested in an isolated v0.3.4 native build.
+- Dashboard financial color semantics are purple for customer money collected, red for product/service cost, and green for gross profit.
+- Opening stock can be linked to a supplier during catalog creation by creating the catalog row at zero stock and then using the supplier-purchase path to add stock once. On purchase failure, the newly created catalog row is removed so a misleading unlinked item is not left behind.
+- Supplier purchase summaries describe the payment made at purchase time; later unallocated supplier-level payments must not be presented as if they changed that historical initial-payment field. A separate append-only transaction history now shows the purchase and every payment with its own timestamp.
+- Optional supplier evidence accepts inspected PDF/JPG/PNG/WebP files up to 10 MB. The database stores only application-owned `/uploads/supplier-documents/` paths, and native backup/restore already includes the uploads tree.

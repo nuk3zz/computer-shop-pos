@@ -75,6 +75,42 @@ func TestUploadProductImageRejectsNonImage(t *testing.T) {
 	}
 }
 
+func TestUploadSupplierDocumentAcceptsPDF(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	uploadDir := t.TempDir()
+	handler := NewImageUploadHandler(uploadDir)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("document", "invoice.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/uploads/supplier-documents", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	response := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(response)
+	context.Request = request
+
+	handler.UploadSupplierDocument(context)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	files, err := os.ReadDir(filepath.Join(uploadDir, "supplier-documents"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || filepath.Ext(files[0].Name()) != ".pdf" {
+		t.Fatalf("expected one generated PDF file, got %v", files)
+	}
+}
+
 func multipartImageRequest(t *testing.T, filename string, content []byte) *http.Request {
 	t.Helper()
 

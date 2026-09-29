@@ -28,6 +28,7 @@ type supplierPurchaseInput struct {
 	ReferenceNumber *string   `json:"reference_number"`
 	AmountPaid      float64   `json:"amount_paid"`
 	Notes           *string   `json:"notes"`
+	AttachmentURL   *string   `json:"attachment_url"`
 	Items           []struct {
 		ProductID uuid.UUID `json:"product_id"`
 		Quantity  int       `json:"quantity"`
@@ -107,7 +108,7 @@ func (h *SupplyChainHandler) saveSupplier(c *gin.Context, id string) {
 
 func (h *SupplyChainHandler) GetPurchases(c *gin.Context) {
 	rows, err := h.db.Query(`
-		SELECT p.id, p.supplier_id, s.name, p.reference_number, p.total_amount, p.notes, p.purchased_at,
+		SELECT p.id, p.supplier_id, s.name, p.reference_number, p.total_amount, p.notes, p.attachment_url, p.purchased_at,
 		       COALESCE((SELECT SUM(sp.amount) FROM supplier_payments sp WHERE sp.purchase_id=p.id), 0)
 		FROM supplier_purchases p JOIN suppliers s ON s.id=p.supplier_id ORDER BY p.purchased_at DESC`)
 	if err != nil {
@@ -118,22 +119,58 @@ func (h *SupplyChainHandler) GetPurchases(c *gin.Context) {
 	result := make([]gin.H, 0)
 	for rows.Next() {
 		var id, supplierID, supplierName string
-		var reference, notes sql.NullString
+		var reference, notes, attachmentURL sql.NullString
 		var total, paid float64
 		var purchasedAt any
-		if err := rows.Scan(&id, &supplierID, &supplierName, &reference, &total, &notes, &purchasedAt, &paid); err != nil {
+		if err := rows.Scan(&id, &supplierID, &supplierName, &reference, &total, &notes, &attachmentURL, &purchasedAt, &paid); err != nil {
 			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to read purchase", Error: stringPtr(err.Error())})
 			return
 		}
-		result = append(result, gin.H{"id": id, "supplier_id": supplierID, "supplier_name": supplierName, "reference_number": nullableString(reference), "total_amount": total, "amount_paid": paid, "balance": total - paid, "notes": nullableString(notes), "purchased_at": purchasedAt})
+		result = append(result, gin.H{"id": id, "supplier_id": supplierID, "supplier_name": supplierName, "reference_number": nullableString(reference), "total_amount": total, "amount_paid": paid, "balance": total - paid, "notes": nullableString(notes), "attachment_url": nullableString(attachmentURL), "purchased_at": purchasedAt})
 	}
 	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "Purchases retrieved", Data: result})
+}
+
+func (h *SupplyChainHandler) GetTransactions(c *gin.Context) {
+	rows, err := h.db.Query(`
+		SELECT event_id, supplier_id, supplier_name, event_type, amount, notes, attachment_url, occurred_at
+		FROM (
+			SELECT p.id event_id, p.supplier_id, s.name supplier_name, 'purchase' event_type,
+			       p.total_amount amount, p.notes, p.attachment_url, p.purchased_at occurred_at
+			FROM supplier_purchases p JOIN suppliers s ON s.id=p.supplier_id
+			UNION ALL
+			SELECT pay.id event_id, pay.supplier_id, s.name supplier_name, 'payment' event_type,
+			       pay.amount, pay.notes, pay.attachment_url, pay.paid_at occurred_at
+			FROM supplier_payments pay JOIN suppliers s ON s.id=pay.supplier_id
+		) history ORDER BY occurred_at DESC, event_id DESC`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to load supplier history", Error: stringPtr(err.Error())})
+		return
+	}
+	defer rows.Close()
+	result := make([]gin.H, 0)
+	for rows.Next() {
+		var id, supplierID, supplierName, eventType string
+		var amount float64
+		var notes, attachmentURL sql.NullString
+		var occurredAt any
+		if err := rows.Scan(&id, &supplierID, &supplierName, &eventType, &amount, &notes, &attachmentURL, &occurredAt); err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to read supplier history", Error: stringPtr(err.Error())})
+			return
+		}
+		result = append(result, gin.H{"id": id, "supplier_id": supplierID, "supplier_name": supplierName, "type": eventType, "amount": amount, "notes": nullableString(notes), "attachment_url": nullableString(attachmentURL), "occurred_at": occurredAt})
+	}
+	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "Supplier transaction history retrieved", Data: result})
 }
 
 func (h *SupplyChainHandler) CreatePurchase(c *gin.Context) {
 	var req supplierPurchaseInput
 	if err := c.ShouldBindJSON(&req); err != nil || req.SupplierID == uuid.Nil || len(req.Items) == 0 || req.AmountPaid < 0 {
 		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Supplier, purchase items, and a valid paid amount are required"})
+		return
+	}
+	if !validSupplierAttachment(req.AttachmentURL) {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Supplier attachment URL is invalid"})
 		return
 	}
 	tx, err := h.db.Begin()
@@ -169,7 +206,7 @@ func (h *SupplyChainHandler) CreatePurchase(c *gin.Context) {
 		return
 	}
 	purchaseID := uuid.New()
-	if _, err := tx.Exec(`INSERT INTO supplier_purchases (id,supplier_id,reference_number,total_amount,notes) VALUES ($1,$2,$3,$4,$5)`, purchaseID, req.SupplierID, trimOptional(req.ReferenceNumber), total, trimOptional(req.Notes)); err != nil {
+	if _, err := tx.Exec(`INSERT INTO supplier_purchases (id,supplier_id,reference_number,total_amount,notes,attachment_url) VALUES ($1,$2,$3,$4,$5,$6)`, purchaseID, req.SupplierID, trimOptional(req.ReferenceNumber), total, trimOptional(req.Notes), trimOptional(req.AttachmentURL)); err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to save purchase", Error: stringPtr(err.Error())})
 		return
 	}
@@ -189,7 +226,7 @@ func (h *SupplyChainHandler) CreatePurchase(c *gin.Context) {
 		}
 	}
 	if req.AmountPaid > 0 {
-		if _, err := tx.Exec(`INSERT INTO supplier_payments (id,supplier_id,purchase_id,amount,notes) VALUES ($1,$2,$3,$4,'Payment recorded with stock purchase')`, uuid.New(), req.SupplierID, purchaseID, req.AmountPaid); err != nil {
+		if _, err := tx.Exec(`INSERT INTO supplier_payments (id,supplier_id,purchase_id,amount,notes,attachment_url) VALUES ($1,$2,$3,$4,'Payment recorded with stock purchase',$5)`, uuid.New(), req.SupplierID, purchaseID, req.AmountPaid, trimOptional(req.AttachmentURL)); err != nil {
 			c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to record supplier payment", Error: stringPtr(err.Error())})
 			return
 		}
@@ -208,11 +245,16 @@ func (h *SupplyChainHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Amount float64 `json:"amount"`
-		Notes  *string `json:"notes"`
+		Amount        float64 `json:"amount"`
+		Notes         *string `json:"notes"`
+		AttachmentURL *string `json:"attachment_url"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.Amount <= 0 {
 		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Payment amount must be greater than zero"})
+		return
+	}
+	if !validSupplierAttachment(req.AttachmentURL) {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Supplier attachment URL is invalid"})
 		return
 	}
 	var debt float64
@@ -224,7 +266,7 @@ func (h *SupplyChainHandler) CreatePayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Payment cannot exceed the supplier's outstanding debt"})
 		return
 	}
-	if _, err := h.db.Exec(`INSERT INTO supplier_payments (id,supplier_id,amount,notes) VALUES ($1,$2,$3,$4)`, uuid.New(), supplierID, req.Amount, trimOptional(req.Notes)); err != nil {
+	if _, err := h.db.Exec(`INSERT INTO supplier_payments (id,supplier_id,amount,notes,attachment_url) VALUES ($1,$2,$3,$4,$5)`, uuid.New(), supplierID, req.Amount, trimOptional(req.Notes), trimOptional(req.AttachmentURL)); err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "Failed to record supplier payment", Error: stringPtr(err.Error())})
 		return
 	}
@@ -243,4 +285,8 @@ func trimOptional(value *string) any {
 		return nil
 	}
 	return strings.TrimSpace(*value)
+}
+
+func validSupplierAttachment(value *string) bool {
+	return value == nil || strings.TrimSpace(*value) == "" || strings.HasPrefix(strings.TrimSpace(*value), "/uploads/supplier-documents/")
 }

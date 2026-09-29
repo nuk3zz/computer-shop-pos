@@ -5,7 +5,7 @@ Priority: optional
 Architecture: amd64
 Installed-Size: @INSTALLED_SIZE@
 Maintainer: Universal Repair POS <noreply@localhost>
-Depends: systemd
+Depends: systemd, ca-certificates
 Conflicts: computer-shop-pos
 Replaces: computer-shop-pos
 Provides: computer-shop-pos

@@ -1,6 +1,6 @@
 # Product orders and supply chain
 
-Source: [`raw/2026-09-29-product-sales-and-supply-chain-request.md`](../raw/2026-09-29-product-sales-and-supply-chain-request.md)
+Sources: [`raw/2026-09-29-product-sales-and-supply-chain-request.md`](../raw/2026-09-29-product-sales-and-supply-chain-request.md), [`raw/2026-09-29-catalog-supplier-link-and-payment-attachments.md`](../raw/2026-09-29-catalog-supplier-link-and-payment-attachments.md)
 
 ## Product-sale transaction rule
 
@@ -28,6 +28,10 @@ A product checkout is atomic: it validates available stock, saves or links the c
 - Payments to suppliers are an append-only ledger. An optional amount paid during purchase creation becomes the first ledger payment.
 - Outstanding supplier debt equals total purchases minus supplier payments. A purchase with an unpaid balance is rejected unless that supplier permits credit.
 - Supplier available-time fields are intentionally excluded.
+- Physical catalog creation can optionally create the opening-stock purchase against a selected supplier. In that path the catalog row starts at zero and the supplier purchase adds the requested quantity, preventing double-counted stock.
+- Non-credit suppliers force the initial purchase to be paid in full. Credit-enabled suppliers permit full, partial, or zero payment and carry the difference as outstanding debt.
+- Purchase and payment records are separate append-only timeline events. Every later debt payment remains visible with its own date and time rather than only changing an aggregate paid total.
+- Purchases and payments may each reference an optional PDF or image receipt. These files are stored with the installation uploads and therefore participate in native backup/restore.
 
 ## Catalog stock labels
 

@@ -21,8 +21,8 @@ import { createProductSchema, updateProductSchema, type CreateProductData, type 
 import { toastHelpers } from '@/lib/toast-helpers'
 import apiClient from '@/api/client'
 import { getMediaUrl } from '@/lib/media'
-import type { Product } from '@/types'
-import { ImagePlus, Trash2, X } from 'lucide-react'
+import type { Product, Supplier } from '@/types'
+import { ImagePlus, Paperclip, Trash2, X } from 'lucide-react'
 
 interface ProductFormProps {
   product?: Product // If provided, we're editing; otherwise creating
@@ -39,11 +39,22 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
   )
   const [newImages, setNewImages] = useState<Array<{ file: File; preview: string }>>([])
   const [imageError, setImageError] = useState('')
+  const [recordSupplierPurchase, setRecordSupplierPurchase] = useState(false)
+  const [supplierID, setSupplierID] = useState('')
+  const [supplierPaidInFull, setSupplierPaidInFull] = useState(true)
+  const [supplierAmountPaid, setSupplierAmountPaid] = useState(0)
+  const [supplierReference, setSupplierReference] = useState('')
+  const [supplierAttachment, setSupplierAttachment] = useState<File | null>(null)
 
   // Fetch categories for dropdown
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => apiClient.getCategories().then((res) => res.data)
+  })
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => apiClient.getSuppliers().then((res) => res.data || []),
+    enabled: !isEditing,
   })
 
   // Create category options for select field
@@ -96,7 +107,17 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
     }
   }, [categories, form, isEditing])
 
+  useEffect(() => {
+    if (!supplierID && suppliers.length > 0) setSupplierID(suppliers[0].id)
+  }, [supplierID, suppliers])
+
   const itemType = form.watch('item_type')
+  const stockQuantity = Number(form.watch('stock_quantity') || 0)
+  const unitCost = Number(form.watch('cost_price') || 0)
+  const supplierTotal = stockQuantity * unitCost
+  const selectedSupplier = suppliers.find((supplier) => supplier.id === supplierID)
+  const supplierRequiresFullPayment = Boolean(selectedSupplier && !selectedSupplier.credit_allowed)
+  const effectiveSupplierPayment = supplierRequiresFullPayment || supplierPaidInFull ? supplierTotal : supplierAmountPaid
 
   useEffect(() => {
     const duration = form.getValues('preparation_time') || 0
@@ -162,11 +183,36 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: CreateProductData) => apiClient.createProduct(await prepareProductData(data)),
+    mutationFn: async (data: CreateProductData) => {
+      const preparedData = await prepareProductData(data)
+      if (!recordSupplierPurchase) return apiClient.createProduct(preparedData)
+
+      const productResponse = await apiClient.createProduct({ ...preparedData, stock_quantity: 0 })
+      const productID = productResponse.data?.id
+      if (!productID) throw new Error('The catalog item was created without an ID')
+      try {
+        const attachmentURL = supplierAttachment ? (await apiClient.uploadSupplierDocument(supplierAttachment)).data?.url : undefined
+        await apiClient.createSupplierPurchase({
+          supplier_id: supplierID,
+          reference_number: supplierReference.trim() || undefined,
+          amount_paid: effectiveSupplierPayment,
+          attachment_url: attachmentURL,
+          notes: 'Recorded while creating catalog item',
+          items: [{ product_id: productID, quantity: stockQuantity, unit_cost: unitCost }],
+        })
+      } catch (error) {
+        await apiClient.deleteProduct(productID).catch(() => undefined)
+        throw error
+      }
+      return productResponse
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['supplier-purchases'] })
+      queryClient.invalidateQueries({ queryKey: ['supplier-transactions'] })
       toastHelpers.productCreated(form.getValues('name') || 'Product')
       form.reset()
       onSuccess?.()
@@ -336,6 +382,34 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
               )}
             </div>
 
+            {!isEditing && itemType === 'product' && (
+              <div className="space-y-4 border-t pt-5">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={recordSupplierPurchase} onChange={(event) => setRecordSupplierPurchase(event.target.checked)} />
+                  Also record where this stock was purchased
+                </label>
+                {recordSupplierPurchase && (
+                  suppliers.length === 0 ? (
+                    <p className="text-sm text-amber-700">Add a supplier in Supply Chain before linking this catalog item.</p>
+                  ) : (
+                    <div className="space-y-4 rounded-md bg-slate-50 p-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="text-sm font-medium"><span className="mb-1.5 block">Supplier</span><select className="h-10 w-full rounded-md border bg-white px-3" value={supplierID} onChange={(event) => { setSupplierID(event.target.value); setSupplierPaidInFull(true); setSupplierAmountPaid(0) }}>{suppliers.map((supplier: Supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
+                        <label className="text-sm font-medium"><span className="mb-1.5 block">Invoice / reference (optional)</span><Input value={supplierReference} onChange={(event) => setSupplierReference(event.target.value)} /></label>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={supplierRequiresFullPayment || supplierPaidInFull} disabled={supplierRequiresFullPayment} onChange={(event) => setSupplierPaidInFull(event.target.checked)} /><span>Paid in full{supplierRequiresFullPayment ? ' (required)' : ''}</span></label>
+                        <label className="text-sm font-medium"><span className="mb-1.5 block">Amount paid now (LKR)</span><Input type="number" min="0" max={supplierTotal} step="0.01" value={effectiveSupplierPayment} disabled={supplierRequiresFullPayment || supplierPaidInFull} onChange={(event) => setSupplierAmountPaid(Number(event.target.value))} /></label>
+                      </div>
+                      <label className="block text-sm font-medium"><span className="mb-1.5 flex items-center gap-1.5"><Paperclip className="h-3.5 w-3.5" />Invoice / receipt attachment (optional)</span><Input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setSupplierAttachment(event.target.files?.[0] || null)} /><span className="mt-1 block text-xs font-normal text-muted-foreground">PDF or screenshot, maximum 10 MB</span></label>
+                      <div className="flex justify-between text-sm"><span>Supplier purchase total</span><strong>LKR {supplierTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></div>
+                      {!supplierRequiresFullPayment && !supplierPaidInFull && <div className="flex justify-between text-sm text-amber-700"><span>Credit balance</span><strong>LKR {Math.max(0, supplierTotal - effectiveSupplierPayment).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></div>}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
             {/* Category & Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SelectField
@@ -358,7 +432,7 @@ export function ProductForm({ product, onSuccess, onCancel, mode = 'create' }: P
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
-              <FormSubmitButton isLoading={isLoading} loadingText={isEditing ? 'Updating...' : 'Creating...'} className="flex-1">
+              <FormSubmitButton isLoading={isLoading} disabled={recordSupplierPurchase && (!supplierID || stockQuantity <= 0 || effectiveSupplierPayment < 0 || effectiveSupplierPayment > supplierTotal)} loadingText={isEditing ? 'Updating...' : 'Creating...'} className="flex-1">
                 {isEditing ? 'Update Item' : 'Create Item'}
               </FormSubmitButton>
 

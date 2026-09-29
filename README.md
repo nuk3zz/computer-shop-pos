@@ -80,7 +80,7 @@ sudo journalctl -u universal-repair-pos -n 100 --no-pager
 ### macOS universal
 
 1. Download `Universal-Repair-POS-<version>-macOS-Universal.pkg`.
-2. Open the package and complete installation. It installs a background server that starts automatically at sign-in and opens `http://localhost:3000/setup`.
+2. Open the package and complete installation. It installs a background server that starts automatically at sign-in and opens `http://localhost:3210/setup`.
 3. Complete owner setup. Choose **Same Wi-Fi / LAN** if an iPad or another trusted local device should connect.
 
 The package supports Apple Silicon and Intel Macs. Shop data remains under `Documents/Universal Repair POS`, separate from application files. Current public packages are not yet Developer ID-signed or notarized, so macOS may block the first opening; production-grade one-click distribution requires Apple signing credentials and notarization.
@@ -89,7 +89,7 @@ The package supports Apple Silicon and Intel Macs. Shop data remains under `Docu
 
 In **Settings → Backup & Restore**, the standalone edition can create or download a manual `.urposbackup`, upload one from another computer, and stage a verified restore. Automatic daily backups default to 02:30 and retain the latest 30 automatic archives. After staging a restore, restart the Windows PC/application, run `sudo systemctl restart universal-repair-pos` on Linux, or sign out and back in on macOS.
 
-The **Check for updates** button reads the latest GitHub Release. Downloading and running a newer installer upgrades the program while retaining the Documents data folder. A same-disk backup helps with accidental changes; important shop data should also be copied to another drive or remote location.
+The **Check for updates** button reads the latest GitHub Release. When an update is available, the POS creates a verified safety backup, downloads the correct installer in the background, checks its SHA-256 digest, and opens it on macOS or Windows. The normal Apple installer or Windows UAC confirmation is still required. On headless Linux, the POS downloads and verifies the package and displays the exact `sudo apt install` command. Program upgrades retain the Documents data folder. A same-disk backup helps with accidental changes; important shop data should also be copied to another drive or remote location.
 
 ## Development setup
 

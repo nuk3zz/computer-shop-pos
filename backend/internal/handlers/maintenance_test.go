@@ -63,3 +63,64 @@ func TestStartFreshClearsBusinessDataAndKeepsOwner(t *testing.T) {
 		t.Fatalf("unexpected reset result: categories=%d users=%d company=%q setup=%v", categories, users, companyName, setupCompleted)
 	}
 }
+
+func TestSelectUpdateAssetMatchesPlatformInstaller(t *testing.T) {
+	release := githubRelease{TagName: "v0.3.4"}
+	release.Assets = append(release.Assets,
+		struct {
+			Name        string `json:"name"`
+			DownloadURL string `json:"browser_download_url"`
+			Digest      string `json:"digest"`
+			Size        int64  `json:"size"`
+		}{Name: "Universal-Repair-POS-v0.3.4-macOS-Universal.pkg", DownloadURL: "https://github.com/example/mac", Digest: "sha256:abc", Size: 10},
+		struct {
+			Name        string `json:"name"`
+			DownloadURL string `json:"browser_download_url"`
+			Digest      string `json:"digest"`
+			Size        int64  `json:"size"`
+		}{Name: "Universal-Repair-POS-v0.3.4-Windows-x64-Setup.exe", DownloadURL: "https://github.com/example/windows", Digest: "sha256:def", Size: 20},
+		struct {
+			Name        string `json:"name"`
+			DownloadURL string `json:"browser_download_url"`
+			Digest      string `json:"digest"`
+			Size        int64  `json:"size"`
+		}{Name: "universal-repair-pos_0.3.4_amd64.deb", DownloadURL: "https://github.com/example/linux", Digest: "sha256:123", Size: 30},
+	)
+
+	tests := []struct {
+		goos, goarch, name string
+	}{
+		{goos: "darwin", goarch: "arm64", name: "Universal-Repair-POS-v0.3.4-macOS-Universal.pkg"},
+		{goos: "windows", goarch: "amd64", name: "Universal-Repair-POS-v0.3.4-Windows-x64-Setup.exe"},
+		{goos: "linux", goarch: "amd64", name: "universal-repair-pos_0.3.4_amd64.deb"},
+	}
+	for _, test := range tests {
+		asset, ok := selectUpdateAsset(release, test.goos, test.goarch)
+		if !ok || asset.Name != test.name {
+			t.Fatalf("%s/%s selected %#v, ok=%v", test.goos, test.goarch, asset, ok)
+		}
+	}
+	if _, ok := selectUpdateAsset(release, "linux", "arm64"); ok {
+		t.Fatal("linux arm64 should not claim an unavailable installer")
+	}
+}
+
+func TestIsVersionNewerRejectsDowngrades(t *testing.T) {
+	tests := []struct {
+		candidate string
+		current   string
+		want      bool
+	}{
+		{candidate: "v0.3.4", current: "v0.3.3", want: true},
+		{candidate: "v0.4.0", current: "v0.3.9", want: true},
+		{candidate: "v1.0.0", current: "v0.99.99", want: true},
+		{candidate: "v0.3.3", current: "v0.3.3", want: false},
+		{candidate: "v0.3.3", current: "v0.3.4", want: false},
+		{candidate: "invalid", current: "v0.3.4", want: false},
+	}
+	for _, test := range tests {
+		if got := isVersionNewer(test.candidate, test.current); got != test.want {
+			t.Fatalf("isVersionNewer(%q, %q) = %v, want %v", test.candidate, test.current, got, test.want)
+		}
+	}
+}

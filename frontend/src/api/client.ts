@@ -25,10 +25,12 @@ import type {
   SystemInfo,
   BackupInfo,
   UpdateInfo,
+  UpdateDownloadResult,
   Supplier,
   SupplierInput,
   SupplierPurchase,
   SupplierPurchaseInput,
+  SupplierTransaction,
 } from '@/types';
 
 class APIClient {
@@ -180,12 +182,16 @@ class APIClient {
     return this.request({ method: 'GET', url: '/supplier-purchases' });
   }
 
+  async getSupplierTransactions(): Promise<APIResponse<SupplierTransaction[]>> {
+    return this.request({ method: 'GET', url: '/supplier-transactions' });
+  }
+
   async createSupplierPurchase(input: SupplierPurchaseInput): Promise<APIResponse> {
     return this.request({ method: 'POST', url: '/admin/supplier-purchases', data: input });
   }
 
-  async createSupplierPayment(id: string, amount: number, notes?: string): Promise<APIResponse> {
-    return this.request({ method: 'POST', url: `/admin/suppliers/${id}/payments`, data: { amount, notes } });
+  async createSupplierPayment(id: string, input: { amount: number; notes?: string; attachment_url?: string }): Promise<APIResponse> {
+    return this.request({ method: 'POST', url: `/admin/suppliers/${id}/payments`, data: input });
   }
 
   // Order endpoints
@@ -336,6 +342,12 @@ class APIClient {
     });
   }
 
+  async uploadSupplierDocument(file: File): Promise<APIResponse<{ url: string; content_type: string; size: number }>> {
+    const formData = new FormData();
+    formData.append('document', file);
+    return this.request({ method: 'POST', url: '/admin/uploads/supplier-documents', data: formData, headers: { 'Content-Type': 'multipart/form-data' } });
+  }
+
   async getShopProfile(): Promise<APIResponse<ShopProfile>> {
     return this.request({ method: 'GET', url: '/shop-profile' });
   }
@@ -396,6 +408,10 @@ class APIClient {
 
   async checkForUpdates(): Promise<APIResponse<UpdateInfo>> {
     return this.request({ method: 'GET', url: '/admin/system/updates' });
+  }
+
+  async downloadUpdate(): Promise<APIResponse<UpdateDownloadResult>> {
+    return this.request({ method: 'POST', url: '/admin/system/updates/download', timeout: 15 * 60 * 1000 });
   }
 
   async startFresh(confirmation: string): Promise<APIResponse> {

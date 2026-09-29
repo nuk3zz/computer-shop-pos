@@ -72,6 +72,14 @@ export function SystemMaintenance() {
     },
     onError: (error) => toastHelpers.apiError('Check for updates', error),
   })
+	const downloadUpdate = useMutation({
+		mutationFn: () => apiClient.downloadUpdate(),
+		onSuccess: (response) => {
+			queryClient.invalidateQueries({ queryKey: ['system-backups'] })
+			toastHelpers.apiSuccess('Update ready', response.message)
+		},
+		onError: (error) => toastHelpers.apiError('Download update', error),
+	})
 	const startFresh = useMutation({
 		mutationFn: () => apiClient.startFresh(freshStartConfirmation),
 		onSuccess: () => {
@@ -123,7 +131,8 @@ export function SystemMaintenance() {
         <CardHeader><CardTitle className="flex items-center gap-2"><RefreshCw className="h-5 w-5" />Software Updates</CardTitle><CardDescription>Installing a newer package replaces the application only. Your Documents data and backups are preserved.</CardDescription></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-3"><Badge variant="outline">Version {info?.version || '…'}</Badge><Button variant="outline" onClick={() => checkUpdates.mutate()} disabled={checkUpdates.isPending}><RefreshCw className={`mr-2 h-4 w-4 ${checkUpdates.isPending ? 'animate-spin' : ''}`} />Check for updates</Button></div>
-          {checkUpdates.data?.data?.update_available && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm"><div className="flex items-center gap-2 font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" />{checkUpdates.data.data.latest_version} is available</div>{checkUpdates.data.data.release_url && <a href={checkUpdates.data.data.release_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center text-emerald-800 underline">Open installer download <ExternalLink className="ml-1 h-3.5 w-3.5" /></a>}</div>}
+          {checkUpdates.data?.data?.update_available && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm"><div className="flex items-center gap-2 font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" />{checkUpdates.data.data.latest_version} is available</div><p className="mt-1 text-xs text-emerald-800">A verified safety backup is created before the installer is downloaded.</p>{checkUpdates.data.data.install_supported ? <Button className="mt-3" size="sm" onClick={() => downloadUpdate.mutate()} disabled={downloadUpdate.isPending}><Download className="mr-1.5 h-3.5 w-3.5" />{downloadUpdate.isPending ? 'Downloading & verifying…' : info?.os === 'linux' ? 'Download update' : 'Download & Install'}</Button> : checkUpdates.data.data.release_url && <a href={checkUpdates.data.data.release_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center text-emerald-800 underline">Open release page <ExternalLink className="ml-1 h-3.5 w-3.5" /></a>}</div>}
+          {downloadUpdate.data?.data && <div className="rounded-md bg-slate-50 p-3 text-sm"><div className="font-medium">{downloadUpdate.data.message}</div>{downloadUpdate.data.data.install_command && <><p className="mt-2 text-xs text-muted-foreground">Run this on the Linux server:</p><code className="mt-1 block overflow-x-auto rounded bg-slate-900 p-2 text-xs text-white">{downloadUpdate.data.data.install_command}</code></>}</div>}
         </CardContent>
       </Card>
 

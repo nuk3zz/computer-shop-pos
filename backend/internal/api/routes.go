@@ -59,6 +59,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		protected.GET("/shop-profile", shopProfileHandler.Get)
 		protected.GET("/suppliers", supplyChainHandler.GetSuppliers)
 		protected.GET("/supplier-purchases", supplyChainHandler.GetPurchases)
+		protected.GET("/supplier-transactions", supplyChainHandler.GetTransactions)
 
 		// Sales and repair-ticket routes
 		protected.GET("/orders", orderHandler.GetOrders)
@@ -93,6 +94,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.PUT("/products/:id", updateProduct(db))
 		admin.DELETE("/products/:id", deleteProduct(db))
 		admin.POST("/uploads/images", imageUploadHandler.UploadProductImage)
+		admin.POST("/uploads/supplier-documents", imageUploadHandler.UploadSupplierDocument)
 		admin.PUT("/shop-profile", shopProfileHandler.Update)
 		admin.POST("/setup/complete", initialSetupHandler.CompleteAuthenticated)
 		admin.GET("/system/info", maintenanceHandler.Info)
@@ -103,6 +105,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.POST("/system/backups/upload", maintenanceHandler.UploadBackup)
 		admin.POST("/system/restore", maintenanceHandler.StageRestore)
 		admin.GET("/system/updates", maintenanceHandler.CheckUpdates)
+		admin.POST("/system/updates/download", maintenanceHandler.DownloadUpdate)
 		admin.POST("/system/start-fresh", maintenanceHandler.StartFresh)
 		admin.POST("/customers", customerHandler.CreateCustomer)
 		admin.PUT("/customers/:id", customerHandler.UpdateCustomer)

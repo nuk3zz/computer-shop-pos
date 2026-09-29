@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import apiClient from '@/api/client'
 import { formatMoney } from '@/lib/shop-settings'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,13 +58,17 @@ export function AdminDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/settings">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Link>
           </Button>
-          <Button variant="outline" size="sm">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Reports
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/reports">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Reports
+            </Link>
           </Button>
         </div>
       </div>
@@ -89,7 +94,7 @@ export function AdminDashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatMoney(stats?.today_revenue || 0)}</div>
+            <div className="text-2xl font-bold text-purple-600">{formatMoney(stats?.today_revenue || 0)}</div>
             <p className="text-xs text-muted-foreground">
               Full customer payments received today
             </p>
@@ -177,19 +182,19 @@ export function AdminDashboard() {
                   <div className="text-sm text-muted-foreground">Total Orders</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-purple-600">
                     {formatMoney(income.summary.gross_income)}
                   </div>
                   <div className="text-sm text-muted-foreground">Sales Collected</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-emerald-600">
+                  <div className="text-2xl font-bold text-red-600">
                     {formatMoney(income.summary.cost_of_goods)}
                   </div>
                   <div className="text-sm text-muted-foreground">Product / Service Cost</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
+                  <div className="text-2xl font-bold text-green-600">
                     {formatMoney(income.summary.gross_profit)}
                   </div>
                   <div className="text-sm text-muted-foreground">Gross Profit</div>
@@ -230,37 +235,45 @@ export function AdminDashboard() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader className="text-center">
-            <Plus className="h-8 w-8 mx-auto text-blue-600" />
-            <CardTitle className="text-lg">Catalog & Inventory</CardTitle>
-            <CardDescription>Add products, services, images, prices, and categories</CardDescription>
-          </CardHeader>
-        </Card>
+        <Link to="/admin/catalog" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <Card className="h-full cursor-pointer transition-shadow hover:shadow-lg">
+            <CardHeader className="text-center">
+              <Plus className="h-8 w-8 mx-auto text-blue-600" />
+              <CardTitle className="text-lg">Catalog & Inventory</CardTitle>
+              <CardDescription>Add products, services, images, prices, and categories</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader className="text-center">
-            <Wrench className="h-8 w-8 mx-auto text-green-600" />
-            <CardTitle className="text-lg">Repair Tickets</CardTitle>
-            <CardDescription>Track diagnostics, active repairs, and pickups</CardDescription>
-          </CardHeader>
-        </Card>
+        <Link to="/admin/repairs" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <Card className="h-full cursor-pointer transition-shadow hover:shadow-lg">
+            <CardHeader className="text-center">
+              <Wrench className="h-8 w-8 mx-auto text-green-600" />
+              <CardTitle className="text-lg">Repair Tickets</CardTitle>
+              <CardDescription>Track diagnostics, active repairs, and pickups</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader className="text-center">
-            <UserCog className="h-8 w-8 mx-auto text-purple-600" />
-            <CardTitle className="text-lg">Manage Staff</CardTitle>
-            <CardDescription>Add, edit staff accounts and manage permissions</CardDescription>
-          </CardHeader>
-        </Card>
+        <Link to="/admin/staff" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <Card className="h-full cursor-pointer transition-shadow hover:shadow-lg">
+            <CardHeader className="text-center">
+              <UserCog className="h-8 w-8 mx-auto text-purple-600" />
+              <CardTitle className="text-lg">Manage Staff</CardTitle>
+              <CardDescription>Add, edit staff accounts and manage permissions</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader className="text-center">
-            <BarChart3 className="h-8 w-8 mx-auto text-orange-600" />
-            <CardTitle className="text-lg">View Reports</CardTitle>
-            <CardDescription>Detailed analytics and performance reports</CardDescription>
-          </CardHeader>
-        </Card>
+        <Link to="/admin/reports" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <Card className="h-full cursor-pointer transition-shadow hover:shadow-lg">
+            <CardHeader className="text-center">
+              <BarChart3 className="h-8 w-8 mx-auto text-orange-600" />
+              <CardTitle className="text-lg">View Reports</CardTitle>
+              <CardDescription>Detailed analytics and performance reports</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   )

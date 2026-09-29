@@ -108,6 +108,16 @@ export interface UpdateInfo {
   update_available: boolean;
   release_name?: string;
   release_url?: string;
+  install_supported?: boolean;
+  asset_name?: string;
+  asset_size?: number;
+}
+
+export interface UpdateDownloadResult {
+  latest_version: string;
+  installer_path: string;
+  installer_launched: boolean;
+  install_command?: string;
 }
 
 // Product Types
@@ -186,6 +196,7 @@ export interface SupplierPurchase {
   amount_paid: number;
   balance: number;
   notes?: string;
+  attachment_url?: string;
   purchased_at: string;
 }
 
@@ -194,7 +205,19 @@ export interface SupplierPurchaseInput {
   reference_number?: string;
   amount_paid: number;
   notes?: string;
+  attachment_url?: string;
   items: Array<{ product_id: string; quantity: number; unit_cost: number }>;
+}
+
+export interface SupplierTransaction {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  type: 'purchase' | 'payment';
+  amount: number;
+  notes?: string;
+  attachment_url?: string;
+  occurred_at: string;
 }
 
 // Order Types

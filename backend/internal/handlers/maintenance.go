@@ -1,15 +1,23 @@
 package handlers
 
 import (
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"pos-backend/internal/middleware"
@@ -24,6 +32,27 @@ type MaintenanceHandler struct {
 	manager   *possystem.Manager
 	version   string
 	uploadDir string
+	updateMu  sync.Mutex
+}
+
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+	HTMLURL string `json:"html_url"`
+	Name    string `json:"name"`
+	Body    string `json:"body"`
+	Assets  []struct {
+		Name        string `json:"name"`
+		DownloadURL string `json:"browser_download_url"`
+		Digest      string `json:"digest"`
+		Size        int64  `json:"size"`
+	} `json:"assets"`
+}
+
+type updateAsset struct {
+	Name        string
+	DownloadURL string
+	Digest      string
+	Size        int64
 }
 
 func NewMaintenanceHandler(db *sql.DB, dataDir, uploadDir, version string) *MaintenanceHandler {
@@ -31,11 +60,11 @@ func NewMaintenanceHandler(db *sql.DB, dataDir, uploadDir, version string) *Main
 }
 
 func (h *MaintenanceHandler) Info(c *gin.Context) {
-	addresses := []string{"http://localhost:3000"}
 	port := "3000"
 	if _, requestPort, err := net.SplitHostPort(c.Request.Host); err == nil && requestPort != "" {
 		port = requestPort
 	}
+	addresses := []string{fmt.Sprintf("http://localhost:%s", port)}
 	for _, address := range localIPv4Addresses() {
 		addresses = append(addresses, fmt.Sprintf("http://%s:%s", address, port))
 	}
@@ -131,39 +160,186 @@ func (h *MaintenanceHandler) UpdatePreferences(c *gin.Context) {
 }
 
 func (h *MaintenanceHandler) CheckUpdates(c *gin.Context) {
-	request, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, "https://api.github.com/repos/nuk3zz/universal-repair-pos/releases/latest", nil)
-	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("User-Agent", "Universal-Repair-POS/"+h.version)
-	response, err := (&http.Client{Timeout: 12 * time.Second}).Do(request)
+	release, err := h.latestRelease(c.Request.Context())
 	if err != nil {
+		if err == errNoPublishedRelease {
+			c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "No published installer update is available yet", Data: gin.H{"current_version": h.version, "update_available": false}})
+			return
+		}
 		c.JSON(http.StatusBadGateway, models.APIResponse{Success: false, Message: "Could not contact the update server", Error: stringPtr(err.Error())})
 		return
 	}
-	defer response.Body.Close()
-	if response.StatusCode == http.StatusNotFound {
-		c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "No published installer update is available yet", Data: gin.H{"current_version": h.version, "update_available": false}})
-		return
-	}
-	if response.StatusCode != http.StatusOK {
-		c.JSON(http.StatusBadGateway, models.APIResponse{Success: false, Message: "Update server returned an unexpected response"})
-		return
-	}
-	var release struct {
-		TagName string `json:"tag_name"`
-		HTMLURL string `json:"html_url"`
-		Name    string `json:"name"`
-		Body    string `json:"body"`
-	}
-	if err := json.NewDecoder(response.Body).Decode(&release); err != nil {
-		c.JSON(http.StatusBadGateway, models.APIResponse{Success: false, Message: "Could not read update information"})
-		return
-	}
-	available := normalizedVersion(release.TagName) != normalizedVersion(h.version) && h.version != "dev"
+	available := h.version != "dev" && isVersionNewer(release.TagName, h.version)
+	asset, assetOK := selectUpdateAsset(release, runtime.GOOS, runtime.GOARCH)
 	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: "Update check complete", Data: gin.H{
 		"current_version": h.version, "latest_version": release.TagName, "update_available": available,
-		"release_name": release.Name, "release_url": release.HTMLURL,
+		"release_name": release.Name, "release_url": release.HTMLURL, "install_supported": h.manager.Supported() && assetOK,
+		"asset_name": asset.Name, "asset_size": asset.Size,
 	}})
 }
+
+var errNoPublishedRelease = fmt.Errorf("no published release")
+
+func (h *MaintenanceHandler) latestRelease(ctx context.Context) (githubRelease, error) {
+	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/nuk3zz/universal-repair-pos/releases/latest", nil)
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("User-Agent", "Universal-Repair-POS/"+h.version)
+	response, err := (&http.Client{Timeout: 20 * time.Second}).Do(request)
+	if err != nil {
+		return githubRelease{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound {
+		return githubRelease{}, errNoPublishedRelease
+	}
+	if response.StatusCode != http.StatusOK {
+		return githubRelease{}, fmt.Errorf("update server returned HTTP %d", response.StatusCode)
+	}
+	var release githubRelease
+	if err := json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&release); err != nil {
+		return githubRelease{}, fmt.Errorf("read update information: %w", err)
+	}
+	return release, nil
+}
+
+func (h *MaintenanceHandler) DownloadUpdate(c *gin.Context) {
+	if !h.manager.Supported() {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Built-in installer downloads are available in the standalone edition"})
+		return
+	}
+	if !h.updateMu.TryLock() {
+		c.JSON(http.StatusConflict, models.APIResponse{Success: false, Message: "An update download is already running"})
+		return
+	}
+	defer h.updateMu.Unlock()
+
+	release, err := h.latestRelease(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusBadGateway, models.APIResponse{Success: false, Message: "Could not retrieve the latest release", Error: stringPtr(err.Error())})
+		return
+	}
+	if h.version == "dev" || !isVersionNewer(release.TagName, h.version) {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "This installation is already up to date"})
+		return
+	}
+	asset, ok := selectUpdateAsset(release, runtime.GOOS, runtime.GOARCH)
+	if !ok {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "No compatible installer is attached to this release"})
+		return
+	}
+	if _, err := h.manager.CreateBackup("manual", h.version); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "A safety backup could not be created, so the update was not downloaded", Error: stringPtr(err.Error())})
+		return
+	}
+	installerPath, err := h.downloadAndVerify(c.Request.Context(), asset)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, models.APIResponse{Success: false, Message: "Update download or verification failed", Error: stringPtr(err.Error())})
+		return
+	}
+	launched, installCommand, err := launchUpdateInstaller(installerPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Message: "The update was downloaded but the installer could not be opened", Error: stringPtr(err.Error()), Data: gin.H{"installer_path": installerPath}})
+		return
+	}
+	message := "Update verified and ready"
+	if launched {
+		message = "Update verified. Complete the operating-system installer that just opened."
+	}
+	c.JSON(http.StatusOK, models.APIResponse{Success: true, Message: message, Data: gin.H{
+		"latest_version": release.TagName, "installer_path": installerPath, "installer_launched": launched, "install_command": installCommand,
+	}})
+}
+
+func (h *MaintenanceHandler) downloadAndVerify(ctx context.Context, asset updateAsset) (string, error) {
+	parsed, err := url.Parse(asset.DownloadURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "github.com" {
+		return "", fmt.Errorf("release asset URL is not trusted")
+	}
+	expectedDigest := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(asset.Digest)), "sha256:")
+	if len(expectedDigest) != 64 {
+		return "", fmt.Errorf("release asset has no valid SHA-256 digest")
+	}
+	if _, err := hex.DecodeString(expectedDigest); err != nil {
+		return "", fmt.Errorf("release asset digest is invalid")
+	}
+	if asset.Size <= 0 || asset.Size > 512<<20 {
+		return "", fmt.Errorf("release asset size is invalid")
+	}
+	updatesDir := filepath.Join(h.manager.DataDir(), "updates")
+	if err := os.MkdirAll(updatesDir, 0o700); err != nil {
+		return "", err
+	}
+	finalPath := filepath.Join(updatesDir, filepath.Base(asset.Name))
+	tempPath := finalPath + ".download"
+	_ = os.Remove(tempPath)
+	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, asset.DownloadURL, nil)
+	request.Header.Set("User-Agent", "Universal-Repair-POS/"+h.version)
+	response, err := (&http.Client{Timeout: 15 * time.Minute}).Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("installer server returned HTTP %d", response.StatusCode)
+	}
+	output, err := os.OpenFile(tempPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	written, copyErr := io.Copy(io.MultiWriter(output, hash), io.LimitReader(response.Body, asset.Size+1))
+	closeErr := output.Close()
+	if copyErr != nil || closeErr != nil || written != asset.Size {
+		_ = os.Remove(tempPath)
+		return "", fmt.Errorf("incomplete installer download")
+	}
+	actualDigest := hex.EncodeToString(hash.Sum(nil))
+	if actualDigest != expectedDigest {
+		_ = os.Remove(tempPath)
+		return "", fmt.Errorf("installer SHA-256 verification failed")
+	}
+	_ = os.Remove(finalPath)
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		_ = os.Remove(tempPath)
+		return "", err
+	}
+	return finalPath, nil
+}
+
+func selectUpdateAsset(release githubRelease, goos, goarch string) (updateAsset, bool) {
+	wanted := ""
+	switch {
+	case goos == "darwin":
+		wanted = "-macOS-Universal.pkg"
+	case goos == "windows" && goarch == "amd64":
+		wanted = "-Windows-x64-Setup.exe"
+	case goos == "linux" && goarch == "amd64":
+		wanted = "_amd64.deb"
+	default:
+		return updateAsset{}, false
+	}
+	for _, asset := range release.Assets {
+		if strings.HasSuffix(asset.Name, wanted) {
+			return updateAsset{Name: asset.Name, DownloadURL: asset.DownloadURL, Digest: asset.Digest, Size: asset.Size}, true
+		}
+	}
+	return updateAsset{}, false
+}
+
+func launchUpdateInstaller(path string) (bool, string, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		return true, "", exec.Command("/usr/bin/open", path).Start()
+	case "windows":
+		return true, "", exec.Command("cmd", "/c", "start", "", path).Start()
+	case "linux":
+		return false, "sudo apt install " + shellQuote(path), nil
+	default:
+		return false, "", fmt.Errorf("automatic installer launch is not supported on %s", runtime.GOOS)
+	}
+}
+
+func shellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'" }
 
 // StartFresh clears business records and identity while preserving the current
 // owner account, server preferences, and backup archives.
@@ -254,4 +430,35 @@ func validTime(value string) bool {
 
 func normalizedVersion(value string) string {
 	return strings.TrimPrefix(strings.TrimSpace(value), "v")
+}
+
+func isVersionNewer(candidate, current string) bool {
+	candidateParts, candidateOK := numericVersion(candidate)
+	currentParts, currentOK := numericVersion(current)
+	if !candidateOK || !currentOK {
+		return false
+	}
+	for index := range candidateParts {
+		if candidateParts[index] != currentParts[index] {
+			return candidateParts[index] > currentParts[index]
+		}
+	}
+	return false
+}
+
+func numericVersion(value string) ([3]int, bool) {
+	var result [3]int
+	value = strings.SplitN(normalizedVersion(value), "-", 2)[0]
+	parts := strings.Split(value, ".")
+	if len(parts) != len(result) {
+		return result, false
+	}
+	for index, part := range parts {
+		parsed, err := strconv.Atoi(part)
+		if err != nil || parsed < 0 {
+			return result, false
+		}
+		result[index] = parsed
+	}
+	return result, true
 }

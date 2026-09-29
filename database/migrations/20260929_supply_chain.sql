@@ -7,4 +7,7 @@ CREATE TABLE IF NOT EXISTS supplier_payments (id UUID PRIMARY KEY, supplier_id U
 CREATE INDEX IF NOT EXISTS idx_supplier_purchases_supplier ON supplier_purchases(supplier_id, purchased_at);
 CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id, paid_at);
 
+ALTER TABLE supplier_purchases ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+
 COMMIT;
