@@ -15,7 +15,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState<LoginRequest>({ username: '', password: '' })
+  const [formData, setFormData] = useState<LoginRequest>({ username: '', password: '', remember_me: true })
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const { data: setupProfile, isLoading: isSetupLoading } = useQuery({
@@ -43,8 +43,9 @@ function LoginPage() {
         setError(data.message || 'Login failed')
       }
     },
-    onError: (error: any) => {
-      setError(error.message || 'Login failed')
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : ''
+      setError(message === 'Invalid username or password' ? 'Username or password is incorrect.' : message || 'Could not sign in. Please try again.')
     },
   })
 
@@ -90,7 +91,7 @@ function LoginPage() {
           </h2>
           
           <p className="text-xl text-blue-100 mb-12 leading-relaxed">
-            Manage computer parts, product sales, repair jobs, services, inventory,
+            Manage products, sales, repair jobs, services, inventory,
             invoices, and business reports from one secure workspace.
           </p>
 
@@ -178,6 +179,17 @@ function LoginPage() {
                     </button>
                   </div>
                 </div>
+
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.remember_me ?? true}
+                    onChange={(e) => setFormData(prev => ({ ...prev, remember_me: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                    disabled={loginMutation.isPending}
+                  />
+                  Keep me signed in for 30 days
+                </label>
 
                 {error && (
                   <div className="bg-gradient-to-r from-red-50 to-red-25 border border-red-200 text-red-700 p-4 rounded-lg text-sm shadow-sm">

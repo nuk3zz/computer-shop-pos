@@ -33,9 +33,11 @@ type Claims struct {
 }
 
 // GenerateToken generates a JWT token for a user
-func GenerateToken(user *models.User) (string, error) {
-	// Set token expiration time (24 hours)
-	expirationTime := time.Now().Add(24 * time.Hour)
+func GenerateToken(user *models.User, lifetime time.Duration) (string, error) {
+	if lifetime <= 0 {
+		lifetime = 24 * time.Hour
+	}
+	expirationTime := time.Now().Add(lifetime)
 
 	// Create claims
 	claims := &Claims{

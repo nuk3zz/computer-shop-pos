@@ -1420,6 +1420,13 @@ func updateUser(db *sql.DB) gin.HandlerFunc {
 			argCount++
 		}
 		if req.Password != nil {
+			if len(*req.Password) < 6 {
+				c.JSON(400, gin.H{
+					"success": false,
+					"message": "Password must be at least 6 characters",
+				})
+				return
+			}
 			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 			if err != nil {
 				c.JSON(500, gin.H{

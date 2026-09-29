@@ -216,3 +216,12 @@
 - Renamed public application surfaces, package artifacts, native binaries, services, launchers, the Home Screen manifest, updater endpoint, documentation, and the repository slug.
 - A product rename must not look like a fresh installation: the standalone runtime and installers migrate the former Documents directory and SQLite filename while continuing to accept legacy backup archives and environment configuration.
 - Windows keeps its stable Inno Setup application identifier for in-place upgrades; Linux declares package replacement and macOS retires the former LaunchAgent after preserving data.
+
+## 2026-09-29 - Staff password update repair
+
+- Zod's `.optional()` permits `undefined`, not an empty string supplied by a controlled form. Optional edit passwords require an explicit blank-or-valid refinement before the submit handler can omit blank values.
+- The staff update client used `PATCH` while the backend registered `PUT`, causing every otherwise-valid update to return 404. Client methods must match the route contract exactly.
+- Password length is now checked server-side as well as in the form so direct API requests cannot set an undersized replacement.
+- The owner account itself was still active and its original owner-only saved credential continued to authenticate, showing that the earlier 404 had not changed its password. Account diagnosis should test credentials without printing them.
+- Login tokens already persisted across browser restarts in local storage; an explicit default-on 30-day option now makes the duration understandable while invalid credentials remain deliberately generic to prevent username discovery.
+- Verify the production path through the frontend reverse proxy (`/health` on port 3000); the backend container is intentionally not exposed directly on host port 8080.

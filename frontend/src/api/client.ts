@@ -266,7 +266,7 @@ class APIClient {
 
   async updateUser(id: string, userData: any): Promise<APIResponse<User>> {
     return this.request({
-      method: 'PATCH',
+      method: 'PUT',
       url: `/admin/users/${id}`,
       data: userData,
     });

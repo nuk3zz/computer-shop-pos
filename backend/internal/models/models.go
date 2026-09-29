@@ -212,8 +212,9 @@ type ProcessPaymentRequest struct {
 
 // LoginRequest represents the login request
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"remember_me"`
 }
 
 // LoginResponse represents the login response

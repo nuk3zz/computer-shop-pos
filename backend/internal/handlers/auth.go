@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strings"
+	"time"
 
 	"pos-backend/internal/middleware"
 	"pos-backend/internal/models"
@@ -85,7 +86,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := middleware.GenerateToken(&user)
+	tokenLifetime := 24 * time.Hour
+	if req.RememberMe {
+		tokenLifetime = 30 * 24 * time.Hour
+	}
+	token, err := middleware.GenerateToken(&user, tokenLifetime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Success: false,
