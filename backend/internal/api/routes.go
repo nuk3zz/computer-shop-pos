@@ -29,6 +29,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 	initialSetupHandler := handlers.NewInitialSetupHandler(db, imageUploadHandler)
 	maintenanceHandler := handlers.NewMaintenanceHandler(db, dataDir, uploadDir, appVersion)
 	supplyChainHandler := handlers.NewSupplyChainHandler(db)
+	warrantyHandler := handlers.NewWarrantyHandler(db)
 
 	// Public routes (no authentication required)
 	public := router.Group("/")
@@ -60,6 +61,7 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		protected.GET("/suppliers", supplyChainHandler.GetSuppliers)
 		protected.GET("/supplier-purchases", supplyChainHandler.GetPurchases)
 		protected.GET("/supplier-transactions", supplyChainHandler.GetTransactions)
+		protected.GET("/warranty-claims", warrantyHandler.GetClaims)
 
 		// Sales and repair-ticket routes
 		protected.GET("/orders", orderHandler.GetOrders)
@@ -114,6 +116,8 @@ func SetupRoutes(router *gin.RouterGroup, db *sql.DB, authMiddleware gin.Handler
 		admin.POST("/supplier-purchases", supplyChainHandler.CreatePurchase)
 		admin.POST("/suppliers/:id/payments", supplyChainHandler.CreatePayment)
 		admin.GET("/supplier-transactions/:type/:id/reference.pdf", supplyChainHandler.GetTransactionReferencePDF)
+		admin.POST("/warranty-claims", warrantyHandler.CreateClaim)
+		admin.PATCH("/warranty-claims/:id", warrantyHandler.UpdateClaim)
 
 		// User management with pagination
 		admin.GET("/users", getAdminUsers(db)) // Update with pagination
@@ -162,6 +166,14 @@ func getDashboardStats(db *sql.DB) gin.HandlerFunc {
 			LEFT JOIN costs ON costs.order_id = o.id
 			WHERE paid.total_paid >= o.total_amount AND %s
 		`, paidToday)).Scan(&todayRevenue, &todayProfit)
+		warrantyToday := `DATE(completed_at) = CURRENT_DATE`
+		if database.IsSQLite(db) {
+			warrantyToday = `date(completed_at, 'localtime') = date('now', 'localtime')`
+		}
+		var customerRefunds, replacementCosts, supplierRecoveries float64
+		db.QueryRow(fmt.Sprintf(`SELECT COALESCE(SUM(refund_amount),0), COALESCE(SUM(replacement_cost),0), COALESCE(SUM(supplier_recovery_amount),0) FROM warranty_claims WHERE status='returned' AND %s`, warrantyToday)).Scan(&customerRefunds, &replacementCosts, &supplierRecoveries)
+		todayRevenue -= customerRefunds
+		todayProfit += supplierRecoveries - customerRefunds - replacementCosts
 
 		// Active orders
 		var activeOrders int
@@ -198,63 +210,44 @@ func getSalesReport(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		period := c.DefaultQuery("period", "today") // today, week, month
 
-		var query string
+		var saleGroup, warrantyGroup, saleWhere, warrantyWhere string
 		if database.IsSQLite(db) {
-			groupExpression := "date(paid.paid_at)"
-			whereExpression := "date(paid.paid_at, 'localtime') = date('now', 'localtime')"
-			switch period {
-			case "week":
-				whereExpression = "paid.paid_at >= datetime('now', '-7 days')"
-			case "month":
-				whereExpression = "paid.paid_at >= datetime('now', '-30 days')"
-			default:
-				groupExpression = "strftime('%Y-%m-%dT%H:00:00', paid.paid_at, 'localtime')"
+			saleGroup, warrantyGroup = "strftime('%Y-%m-%dT%H:00:00', paid.paid_at, 'localtime')", "strftime('%Y-%m-%dT%H:00:00', w.completed_at, 'localtime')"
+			saleWhere, warrantyWhere = "date(paid.paid_at, 'localtime') = date('now', 'localtime')", "date(w.completed_at, 'localtime') = date('now', 'localtime')"
+			if period == "week" || period == "month" {
+				days := 7
+				if period == "month" {
+					days = 30
+				}
+				saleGroup, warrantyGroup = "date(paid.paid_at)", "date(w.completed_at)"
+				saleWhere = fmt.Sprintf("paid.paid_at >= datetime('now', '-%d days')", days)
+				warrantyWhere = fmt.Sprintf("w.completed_at >= datetime('now', '-%d days')", days)
 			}
-			query = fmt.Sprintf(`
-				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
-				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
-				SELECT %s as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
-				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
-				WHERE %s AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
-				GROUP BY %s ORDER BY date DESC`, groupExpression, whereExpression, groupExpression)
 		} else {
-			switch period {
-			case "week":
-				query = `
-				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
-				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
-				SELECT DATE(paid.paid_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
-				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
-				WHERE paid.paid_at >= CURRENT_DATE - INTERVAL '7 days' AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
-				GROUP BY DATE(paid.paid_at)
-				ORDER BY date DESC
-			`
-			case "month":
-				query = `
-				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
-				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
-				SELECT DATE(paid.paid_at) as date, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
-				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
-				WHERE paid.paid_at >= CURRENT_DATE - INTERVAL '30 days' AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
-				GROUP BY DATE(paid.paid_at)
-				ORDER BY date DESC
-			`
-			default: // today
-				query = `
-				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
-				cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
-				SELECT DATE_TRUNC('hour', paid.paid_at) as hour, COUNT(*) as order_count, SUM(o.total_amount) as revenue,
-				       SUM(o.total_amount - o.tax_amount - COALESCE(cost.total_cost, 0)) as profit
-				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN cost ON cost.order_id = o.id
-				WHERE DATE(paid.paid_at) = CURRENT_DATE AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
-				GROUP BY DATE_TRUNC('hour', paid.paid_at)
-				ORDER BY hour DESC
-			`
+			saleGroup, warrantyGroup = "DATE_TRUNC('hour', paid.paid_at)", "DATE_TRUNC('hour', w.completed_at)"
+			saleWhere, warrantyWhere = "DATE(paid.paid_at) = CURRENT_DATE", "DATE(w.completed_at) = CURRENT_DATE"
+			if period == "week" || period == "month" {
+				days := 7
+				if period == "month" {
+					days = 30
+				}
+				saleGroup, warrantyGroup = "DATE(paid.paid_at)", "DATE(w.completed_at)"
+				saleWhere = fmt.Sprintf("paid.paid_at >= CURRENT_DATE - INTERVAL '%d days'", days)
+				warrantyWhere = fmt.Sprintf("w.completed_at >= CURRENT_DATE - INTERVAL '%d days'", days)
 			}
 		}
+		query := fmt.Sprintf(`
+			WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status='completed' GROUP BY order_id),
+			cost AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id),
+			events AS (
+				SELECT %s period, COUNT(*) order_count, SUM(o.total_amount) revenue, SUM(o.total_amount-o.tax_amount-COALESCE(cost.total_cost,0)) profit
+				FROM orders o JOIN paid ON paid.order_id=o.id LEFT JOIN cost ON cost.order_id=o.id
+				WHERE %s AND paid.total_paid>=o.total_amount AND o.status!='cancelled' GROUP BY %s
+				UNION ALL
+				SELECT %s period, 0 order_count, -SUM(w.refund_amount) revenue, SUM(w.supplier_recovery_amount-w.refund_amount-w.replacement_cost) profit
+				FROM warranty_claims w WHERE w.status='returned' AND %s GROUP BY %s
+			)
+			SELECT period, SUM(order_count), SUM(revenue), SUM(profit) FROM events GROUP BY period ORDER BY period DESC`, saleGroup, saleWhere, saleGroup, warrantyGroup, warrantyWhere, warrantyGroup)
 
 		rows, err := db.Query(query)
 		if err != nil {
@@ -473,54 +466,55 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		period := c.DefaultQuery("period", "today") // today, week, month, year
 
-		var query string
+		var saleGroup, warrantyGroup, saleWhere, warrantyWhere string
 		if database.IsSQLite(db) {
-			groupExpression := "strftime('%Y-%m-%dT%H:00:00', paid.paid_at, 'localtime')"
-			whereExpression := "date(paid.paid_at, 'localtime') = date('now', 'localtime')"
+			saleGroup, warrantyGroup = "strftime('%Y-%m-%dT%H:00:00', paid.paid_at, 'localtime')", "strftime('%Y-%m-%dT%H:00:00', w.completed_at, 'localtime')"
+			saleWhere, warrantyWhere = "date(paid.paid_at, 'localtime') = date('now', 'localtime')", "date(w.completed_at, 'localtime') = date('now', 'localtime')"
 			switch period {
-			case "week":
-				groupExpression = "date(paid.paid_at)"
-				whereExpression = "paid.paid_at >= datetime('now', '-7 days')"
-			case "month":
-				groupExpression = "date(paid.paid_at)"
-				whereExpression = "paid.paid_at >= datetime('now', '-30 days')"
+			case "week", "month":
+				days := 7
+				if period == "month" {
+					days = 30
+				}
+				saleGroup, warrantyGroup = "date(paid.paid_at)", "date(w.completed_at)"
+				saleWhere = fmt.Sprintf("paid.paid_at >= datetime('now', '-%d days')", days)
+				warrantyWhere = fmt.Sprintf("w.completed_at >= datetime('now', '-%d days')", days)
 			case "year":
-				groupExpression = "strftime('%Y-%m-01', paid.paid_at)"
-				whereExpression = "paid.paid_at >= datetime('now', '-1 year')"
+				saleGroup, warrantyGroup = "strftime('%Y-%m-01', paid.paid_at)", "strftime('%Y-%m-01', w.completed_at)"
+				saleWhere, warrantyWhere = "paid.paid_at >= datetime('now', '-1 year')", "w.completed_at >= datetime('now', '-1 year')"
 			}
-			query = fmt.Sprintf(`
-				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
-				costs AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
-				SELECT %s as period, COUNT(*) as total_orders, SUM(o.total_amount) as gross_income,
-				       SUM(o.tax_amount) as tax_collected, SUM(o.total_amount - o.tax_amount) as net_income,
-				       SUM(o.total_amount - o.tax_amount - COALESCE(costs.total_cost, 0)) as profit
-				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN costs ON costs.order_id = o.id
-				WHERE %s AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
-				GROUP BY %s ORDER BY period DESC`, groupExpression, whereExpression, groupExpression)
 		} else {
-			groupExpression := "DATE_TRUNC('hour', paid.paid_at)"
-			whereExpression := "DATE(paid.paid_at) = CURRENT_DATE"
+			saleGroup, warrantyGroup = "DATE_TRUNC('hour', paid.paid_at)", "DATE_TRUNC('hour', w.completed_at)"
+			saleWhere, warrantyWhere = "DATE(paid.paid_at) = CURRENT_DATE", "DATE(w.completed_at) = CURRENT_DATE"
 			switch period {
-			case "week":
-				groupExpression = "DATE_TRUNC('day', paid.paid_at)"
-				whereExpression = "paid.paid_at >= CURRENT_DATE - INTERVAL '7 days'"
-			case "month":
-				groupExpression = "DATE_TRUNC('day', paid.paid_at)"
-				whereExpression = "paid.paid_at >= CURRENT_DATE - INTERVAL '30 days'"
+			case "week", "month":
+				days := 7
+				if period == "month" {
+					days = 30
+				}
+				saleGroup, warrantyGroup = "DATE_TRUNC('day', paid.paid_at)", "DATE_TRUNC('day', w.completed_at)"
+				saleWhere = fmt.Sprintf("paid.paid_at >= CURRENT_DATE - INTERVAL '%d days'", days)
+				warrantyWhere = fmt.Sprintf("w.completed_at >= CURRENT_DATE - INTERVAL '%d days'", days)
 			case "year":
-				groupExpression = "DATE_TRUNC('month', paid.paid_at)"
-				whereExpression = "paid.paid_at >= CURRENT_DATE - INTERVAL '1 year'"
+				saleGroup, warrantyGroup = "DATE_TRUNC('month', paid.paid_at)", "DATE_TRUNC('month', w.completed_at)"
+				saleWhere, warrantyWhere = "paid.paid_at >= CURRENT_DATE - INTERVAL '1 year'", "w.completed_at >= CURRENT_DATE - INTERVAL '1 year'"
 			}
-			query = fmt.Sprintf(`
-				WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status = 'completed' GROUP BY order_id),
-				costs AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id)
-				SELECT %s as period, COUNT(*) as total_orders, SUM(o.total_amount) as gross_income,
-				       SUM(o.tax_amount) as tax_collected, SUM(o.total_amount - o.tax_amount) as net_income,
-				       SUM(o.total_amount - o.tax_amount - COALESCE(costs.total_cost, 0)) as profit
-				FROM orders o JOIN paid ON paid.order_id = o.id LEFT JOIN costs ON costs.order_id = o.id
-				WHERE %s AND paid.total_paid >= o.total_amount AND o.status != 'cancelled'
-				GROUP BY %s ORDER BY period DESC`, groupExpression, whereExpression, groupExpression)
 		}
+		query := fmt.Sprintf(`
+			WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status='completed' GROUP BY order_id),
+			costs AS (SELECT order_id, SUM(unit_cost * quantity) total_cost FROM order_items GROUP BY order_id),
+			events AS (
+				SELECT %s period, COUNT(*) total_orders, SUM(o.total_amount) gross_income, SUM(o.tax_amount) tax_collected,
+				       SUM(o.total_amount-o.tax_amount) net_income, SUM(o.total_amount-o.tax_amount-COALESCE(costs.total_cost,0)) profit
+				FROM orders o JOIN paid ON paid.order_id=o.id LEFT JOIN costs ON costs.order_id=o.id
+				WHERE %s AND paid.total_paid>=o.total_amount AND o.status!='cancelled' GROUP BY %s
+				UNION ALL
+				SELECT %s period, 0 total_orders, -SUM(w.refund_amount) gross_income, 0 tax_collected, -SUM(w.refund_amount) net_income,
+				       SUM(w.supplier_recovery_amount-w.refund_amount-w.replacement_cost) profit
+				FROM warranty_claims w WHERE w.status='returned' AND %s GROUP BY %s
+			)
+			SELECT period, SUM(total_orders), SUM(gross_income), SUM(tax_collected), SUM(net_income), SUM(profit)
+			FROM events GROUP BY period ORDER BY period DESC`, saleGroup, saleWhere, saleGroup, warrantyGroup, warrantyWhere, warrantyGroup)
 
 		rows, err := db.Query(query)
 		if err != nil {

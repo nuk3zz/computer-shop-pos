@@ -206,6 +206,47 @@ CREATE TABLE IF NOT EXISTS supplier_payments (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS warranty_claims (
+    id TEXT PRIMARY KEY,
+    claim_number TEXT UNIQUE NOT NULL,
+    order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+    order_item_id TEXT NOT NULL REFERENCES order_items(id) ON DELETE RESTRICT,
+    customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT NOT NULL,
+    product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    product_name TEXT NOT NULL,
+    serial_number TEXT,
+    issue_description TEXT NOT NULL,
+    received_condition TEXT,
+    status TEXT NOT NULL DEFAULT 'received',
+    resolution TEXT NOT NULL DEFAULT 'pending',
+    supplier_status TEXT NOT NULL DEFAULT 'not_sent',
+    supplier_recovery_amount NUMERIC NOT NULL DEFAULT 0,
+    replacement_source TEXT NOT NULL DEFAULT 'none',
+    replacement_product_id TEXT REFERENCES products(id) ON DELETE RESTRICT,
+    replacement_stock_committed BOOLEAN NOT NULL DEFAULT 0,
+    replacement_cost NUMERIC NOT NULL DEFAULT 0,
+    refund_amount NUMERIC NOT NULL DEFAULT 0,
+    notes TEXT,
+    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS warranty_status_history (
+    id TEXT PRIMARY KEY,
+    claim_id TEXT NOT NULL REFERENCES warranty_claims(id) ON DELETE CASCADE,
+    previous_status TEXT,
+    new_status TEXT NOT NULL,
+    resolution TEXT NOT NULL DEFAULT 'pending',
+    notes TEXT,
+    changed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
@@ -221,6 +262,9 @@ CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_product_unique ON inventory(product_id);
 CREATE INDEX IF NOT EXISTS idx_supplier_purchases_supplier ON supplier_purchases(supplier_id, purchased_at);
 CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id, paid_at);
+CREATE INDEX IF NOT EXISTS idx_warranty_claims_status ON warranty_claims(status, received_at);
+CREATE INDEX IF NOT EXISTS idx_warranty_claims_customer ON warranty_claims(customer_id, received_at);
+CREATE INDEX IF NOT EXISTS idx_warranty_history_claim ON warranty_status_history(claim_id, created_at);
 
 INSERT OR IGNORE INTO users (id, username, email, password_hash, first_name, last_name, role, is_active)
 VALUES ('00000000-0000-4000-8000-000000000001', 'setup-owner', 'setup@localhost.invalid', '!', 'Setup', 'Owner', 'admin', 0);

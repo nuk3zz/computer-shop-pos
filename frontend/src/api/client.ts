@@ -31,6 +31,9 @@ import type {
   SupplierPurchase,
   SupplierPurchaseInput,
   SupplierTransaction,
+  WarrantyClaim,
+  WarrantyClaimInput,
+  WarrantyClaimUpdate,
 } from '@/types';
 
 class APIClient {
@@ -197,6 +200,18 @@ class APIClient {
   async getSupplierTransactionReference(type: SupplierTransaction['type'], id: string): Promise<Blob> {
     const response = await this.client.get(`/admin/supplier-transactions/${type}/${id}/reference.pdf`, { responseType: 'blob' });
     return response.data;
+  }
+
+  async getWarrantyClaims(): Promise<APIResponse<WarrantyClaim[]>> {
+    return this.request({ method: 'GET', url: '/warranty-claims' });
+  }
+
+  async createWarrantyClaim(input: WarrantyClaimInput): Promise<APIResponse<{ id: string; claim_number: string }>> {
+    return this.request({ method: 'POST', url: '/admin/warranty-claims', data: input });
+  }
+
+  async updateWarrantyClaim(id: string, input: WarrantyClaimUpdate): Promise<APIResponse> {
+    return this.request({ method: 'PATCH', url: `/admin/warranty-claims/${id}`, data: input });
   }
 
   // Order endpoints

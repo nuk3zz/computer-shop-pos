@@ -15,3 +15,4 @@
 - [iPad and macOS distribution](ipad-and-macos-distribution.md) - Home Screen installation, network requirements, and the universal macOS package.
 - [Product orders and supply chain](product-orders-and-supply-chain.md) - stock-safe sales, delivery/COD tracking, supplier purchases, and debt.
 - [Dashboard navigation](dashboard-navigation.md) - clickable dashboard shortcuts and the financial color language.
+- [Warranty returns](warranty-returns.md) - original-sale-linked returns, checking, replacement/refund outcomes, inventory, and customer collection.

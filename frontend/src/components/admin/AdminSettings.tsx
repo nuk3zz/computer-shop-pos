@@ -118,6 +118,9 @@ export function AdminSettings() {
           <Template label="In progress" value={settings.whatsapp_repairing} onChange={(value) => update('whatsapp_repairing', value)} />
           <Template label="Waiting for customer" value={settings.whatsapp_ready} onChange={(value) => update('whatsapp_ready', value)} />
           <Template label="Delivered / completed" value={settings.whatsapp_completed} onChange={(value) => update('whatsapp_completed', value)} />
+          <Template label="Warranty: checking" value={settings.whatsapp_warranty_checking} onChange={(value) => update('whatsapp_warranty_checking', value)} />
+          <Template label="Warranty: ready for customer" value={settings.whatsapp_warranty_ready} onChange={(value) => update('whatsapp_warranty_ready', value)} />
+          <Template label="Warranty: returned" value={settings.whatsapp_warranty_returned} onChange={(value) => update('whatsapp_warranty_returned', value)} />
         </CardContent>
       </Card>
 

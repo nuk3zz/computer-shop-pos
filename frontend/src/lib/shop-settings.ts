@@ -13,6 +13,9 @@ export interface ShopSettings {
   whatsapp_repairing: string
   whatsapp_ready: string
   whatsapp_completed: string
+  whatsapp_warranty_checking: string
+  whatsapp_warranty_ready: string
+  whatsapp_warranty_returned: string
 }
 
 export const defaultShopSettings: ShopSettings = {
@@ -30,6 +33,9 @@ export const defaultShopSettings: ShopSettings = {
   whatsapp_repairing: 'Hello {customer}, work is now in progress on your job {job_number}.',
   whatsapp_ready: 'Hello {customer}, your job {job_number} is complete and ready for collection.',
   whatsapp_completed: 'Hello {customer}, job {job_number} has been delivered. Thank you for choosing us.',
+  whatsapp_warranty_checking: 'Hello {customer}, we are now checking your warranty return {job_number}. We will update you with the result.',
+  whatsapp_warranty_ready: 'Hello {customer}, your warranty return {job_number} has been checked and is ready for collection. Please contact us if you need more information.',
+  whatsapp_warranty_returned: 'Hello {customer}, warranty return {job_number} has been returned to you. Thank you.',
 }
 
 const storageKey = 'computer_shop_settings'

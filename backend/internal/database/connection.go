@@ -69,6 +69,15 @@ func connectPostgres(config Config) (*sql.DB, error) {
 		ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS attachment_url TEXT;
 		CREATE INDEX IF NOT EXISTS idx_supplier_purchases_supplier ON supplier_purchases(supplier_id, purchased_at);
 		CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id, paid_at);
+		CREATE TABLE IF NOT EXISTS warranty_claims (id UUID PRIMARY KEY, claim_number VARCHAR(40) UNIQUE NOT NULL, order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT, order_item_id UUID NOT NULL REFERENCES order_items(id) ON DELETE RESTRICT, customer_id UUID REFERENCES customers(id) ON DELETE SET NULL, customer_name VARCHAR(150) NOT NULL, customer_phone VARCHAR(30) NOT NULL, product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT, product_name VARCHAR(200) NOT NULL, serial_number VARCHAR(150), issue_description TEXT NOT NULL, received_condition TEXT, status VARCHAR(30) NOT NULL DEFAULT 'received', resolution VARCHAR(30) NOT NULL DEFAULT 'pending', supplier_status VARCHAR(30) NOT NULL DEFAULT 'not_sent', supplier_recovery_amount NUMERIC(12,2) NOT NULL DEFAULT 0, replacement_source VARCHAR(30) NOT NULL DEFAULT 'none', replacement_product_id UUID REFERENCES products(id) ON DELETE RESTRICT, replacement_stock_committed BOOLEAN NOT NULL DEFAULT false, replacement_cost NUMERIC(12,2) NOT NULL DEFAULT 0, refund_amount NUMERIC(12,2) NOT NULL DEFAULT 0, notes TEXT, received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMP, created_by UUID REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		ALTER TABLE warranty_claims ADD COLUMN IF NOT EXISTS supplier_status VARCHAR(30) NOT NULL DEFAULT 'not_sent';
+		ALTER TABLE warranty_claims ADD COLUMN IF NOT EXISTS supplier_recovery_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+		ALTER TABLE warranty_claims ADD COLUMN IF NOT EXISTS replacement_source VARCHAR(30) NOT NULL DEFAULT 'none';
+		ALTER TABLE warranty_claims ADD COLUMN IF NOT EXISTS replacement_cost NUMERIC(12,2) NOT NULL DEFAULT 0;
+		CREATE TABLE IF NOT EXISTS warranty_status_history (id UUID PRIMARY KEY, claim_id UUID NOT NULL REFERENCES warranty_claims(id) ON DELETE CASCADE, previous_status VARCHAR(30), new_status VARCHAR(30) NOT NULL, resolution VARCHAR(30) NOT NULL DEFAULT 'pending', notes TEXT, changed_by UUID REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		CREATE INDEX IF NOT EXISTS idx_warranty_claims_status ON warranty_claims(status, received_at);
+		CREATE INDEX IF NOT EXISTS idx_warranty_claims_customer ON warranty_claims(customer_id, received_at);
+		CREATE INDEX IF NOT EXISTS idx_warranty_history_claim ON warranty_status_history(claim_id, created_at);
 	`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("apply product order migration: %w", err)
@@ -155,7 +164,33 @@ func applySQLiteCompatibilityMigrations(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(order_type, fulfillment_status)`); err != nil {
 		return err
 	}
-	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (6)`)
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS warranty_claims (id TEXT PRIMARY KEY, claim_number TEXT UNIQUE NOT NULL, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE RESTRICT, order_item_id TEXT NOT NULL REFERENCES order_items(id) ON DELETE RESTRICT, customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL, customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT, product_name TEXT NOT NULL, serial_number TEXT, issue_description TEXT NOT NULL, received_condition TEXT, status TEXT NOT NULL DEFAULT 'received', resolution TEXT NOT NULL DEFAULT 'pending', supplier_status TEXT NOT NULL DEFAULT 'not_sent', supplier_recovery_amount NUMERIC NOT NULL DEFAULT 0, replacement_source TEXT NOT NULL DEFAULT 'none', replacement_product_id TEXT REFERENCES products(id) ON DELETE RESTRICT, replacement_stock_committed BOOLEAN NOT NULL DEFAULT 0, replacement_cost NUMERIC NOT NULL DEFAULT 0, refund_amount NUMERIC NOT NULL DEFAULT 0, notes TEXT, received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMP, created_by TEXT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		CREATE TABLE IF NOT EXISTS warranty_status_history (id TEXT PRIMARY KEY, claim_id TEXT NOT NULL REFERENCES warranty_claims(id) ON DELETE CASCADE, previous_status TEXT, new_status TEXT NOT NULL, resolution TEXT NOT NULL DEFAULT 'pending', notes TEXT, changed_by TEXT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+		CREATE INDEX IF NOT EXISTS idx_warranty_claims_status ON warranty_claims(status, received_at);
+		CREATE INDEX IF NOT EXISTS idx_warranty_claims_customer ON warranty_claims(customer_id, received_at);
+		CREATE INDEX IF NOT EXISTS idx_warranty_history_claim ON warranty_status_history(claim_id, created_at);
+	`); err != nil {
+		return err
+	}
+	warrantyColumns := []struct{ column, definition string }{
+		{"supplier_status", "TEXT NOT NULL DEFAULT 'not_sent'"},
+		{"supplier_recovery_amount", "NUMERIC NOT NULL DEFAULT 0"},
+		{"replacement_source", "TEXT NOT NULL DEFAULT 'none'"},
+		{"replacement_cost", "NUMERIC NOT NULL DEFAULT 0"},
+	}
+	for _, migration := range warrantyColumns {
+		exists, err := sqliteColumnExists(db, "warranty_claims", migration.column)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			if _, err := db.Exec(fmt.Sprintf("ALTER TABLE warranty_claims ADD COLUMN %s %s", migration.column, migration.definition)); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version) VALUES (7)`)
 	return err
 }
 

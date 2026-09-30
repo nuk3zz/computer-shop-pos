@@ -284,3 +284,10 @@
 - The A5 purchase reference includes the shop, supplier, transaction ID, timestamp, supplier reference, item quantities/costs, linked purchase payment, balance, and notes. A verified sample rendered as one page at about 2.1 KB.
 - Embedded browser PDF plug-ins are inconsistent for blob URLs. The reliable UI is a compact in-app metadata preview followed by direct Open PDF and Download PDF links; this also avoids automatic popup blocking during generation.
 - Automated tests verify the generated response is a valid lightweight PDF, and visual rendering plus text extraction verified alignment and content before release.
+
+## 2026-09-30 - Warranty returns
+
+- A warranty return is not a repair order or a reversed sale. It needs its own link to the original sale line, stable workflow status, separate resolution, and immutable history.
+- Replacement inventory is committed once when inspection finishes and the claim becomes ready for the customer. Moving the claim to returned must preserve the selected replacement and must not deduct stock again.
+- Warranty money is recognized when the claim reaches `returned`: customer refunds reduce Sales Collected and Gross Profit, shop-stock replacements reduce Gross Profit by saved cost, and supplier cash recoveries offset Gross Profit without being mislabeled as customer revenue.
+- Supplier replacements and shop-stock replacements have different inventory consequences, so the source must be explicit. Supplier waiting/outcome also belongs beside, not inside, the customer-facing resolution.

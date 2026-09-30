@@ -39,9 +39,13 @@ A stable machine key plus owner-editable label, color, order, and terminal-state
 
 Payments settle a sale/work order. An invoice represents the printable commercial document and preserves its number and totals even if the display template changes later.
 
+### Warranty claim
+
+An after-sale product return linked to the original sale line and customer. It tracks intake details, inspection and supplier state, a separate resolution, replacement source/cost, customer refund, supplier recovery, and append-only status history.
+
 ## Financial definitions
 
-- Revenue: sum of completed, non-refunded line revenue.
+- Revenue: completed customer sales minus completed customer warranty refunds.
 - Cost of goods/services: sum of line-level cost snapshots.
-- Gross profit: revenue minus cost.
+- Gross profit: revenue minus saved sale cost and shop-stock warranty replacement cost, plus supplier cash recoveries.
 - Gross margin: gross profit divided by revenue, when revenue is non-zero.

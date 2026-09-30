@@ -398,6 +398,7 @@ func (h *MaintenanceHandler) StartFresh(c *gin.Context) {
 	}
 	defer tx.Rollback()
 	statements := []string{
+		"DELETE FROM warranty_status_history", "DELETE FROM warranty_claims",
 		"DELETE FROM payments", "DELETE FROM order_status_history", "DELETE FROM order_items", "DELETE FROM orders",
 		"DELETE FROM supplier_payments", "DELETE FROM supplier_purchase_items", "DELETE FROM supplier_purchases", "DELETE FROM suppliers",
 		"DELETE FROM inventory", "DELETE FROM product_images", "DELETE FROM products", "DELETE FROM customers",

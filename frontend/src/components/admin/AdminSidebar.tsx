@@ -9,6 +9,7 @@ import {
   PackageSearch,
   Truck,
   Warehouse,
+  ShieldCheck,
   Settings,
   BarChart3,
   UserCog,
@@ -52,6 +53,13 @@ const adminSections = [
     icon: <Truck className="w-5 h-5" />,
     description: 'Packing, delivery, and COD tracking',
     href: '/admin/orders'
+  },
+  {
+    id: 'warranty',
+    label: 'Warranty Returns',
+    icon: <ShieldCheck className="w-5 h-5" />,
+    description: 'Returned items, checks, refunds, and replacements',
+    href: '/admin/warranty'
   },
   {
     id: 'catalog',

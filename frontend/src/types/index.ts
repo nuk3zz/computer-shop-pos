@@ -220,6 +220,63 @@ export interface SupplierTransaction {
   occurred_at: string;
 }
 
+export type WarrantyStatus = 'received' | 'checking' | 'awaiting_supplier' | 'ready_for_customer' | 'returned' | 'cancelled';
+export type WarrantyResolution = 'pending' | 'no_fault_found' | 'replacement' | 'refund';
+export type WarrantySupplierStatus = 'not_sent' | 'waiting' | 'replaced' | 'refunded' | 'rejected';
+export type WarrantyReplacementSource = 'none' | 'shop_stock' | 'supplier';
+
+export interface WarrantyClaim {
+  id: string;
+  claim_number: string;
+  order_id: string;
+  order_number: string;
+  order_item_id: string;
+  customer_id?: string;
+  customer_name: string;
+  customer_phone: string;
+  product_id: string;
+  product_name: string;
+  serial_number?: string;
+  issue_description: string;
+  received_condition?: string;
+  status: WarrantyStatus;
+  resolution: WarrantyResolution;
+  supplier_status: WarrantySupplierStatus;
+  supplier_recovery_amount: number;
+  replacement_source: WarrantyReplacementSource;
+  replacement_product_id?: string;
+  replacement_product_name?: string;
+  replacement_stock_committed: boolean;
+  replacement_cost: number;
+  refund_amount: number;
+  notes?: string;
+  received_at: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WarrantyClaimInput {
+  order_item_id: string;
+  customer_name: string;
+  customer_phone: string;
+  serial_number?: string;
+  issue_description: string;
+  received_condition?: string;
+  notes?: string;
+}
+
+export interface WarrantyClaimUpdate {
+  status: WarrantyStatus;
+  resolution?: WarrantyResolution;
+  supplier_status?: WarrantySupplierStatus;
+  supplier_recovery_amount?: number;
+  replacement_source?: WarrantyReplacementSource;
+  replacement_product_id?: string;
+  refund_amount?: number;
+  notes?: string;
+}
+
 // Order Types
 export interface Order {
   id: string;
