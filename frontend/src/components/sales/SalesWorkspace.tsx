@@ -277,10 +277,10 @@ export function SalesWorkspace() {
                   <label className="block text-xs font-medium text-slate-700">Payment received by
                     <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as ProcessPaymentRequest['payment_method'])} className="mt-1 h-9 w-full rounded-md border bg-white px-2 text-sm">
                       <option value="cash">Cash</option>
-                      <option value="credit_card">Credit card</option>
                       <option value="debit_card">Debit card</option>
                       <option value="digital_wallet">Bank transfer / digital wallet</option>
                     </select>
+                    <span className="mt-1 block text-xs font-normal text-slate-500">All payment methods count toward the same combined balance.</span>
                   </label>
                 ) : <p className="text-xs text-amber-700">Payment remains due until you mark it received in Product Orders.</p>}
               </div>

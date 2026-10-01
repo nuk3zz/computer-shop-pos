@@ -24,6 +24,49 @@ interface IncomeBreakdownItem {
   net: number
 }
 
+interface SalesActivityItem {
+  id: string
+  order_number: string
+  customer_name: string
+  customer_phone: string
+  status: string
+  fulfillment_status: string
+  total: number
+  paid: number
+  created_at: string
+  item_name: string
+  quantity: number
+  payment_method: string
+}
+
+function SalesActivity({ items }: { items: SalesActivityItem[] }) {
+  const orders = new Map<string, { order: SalesActivityItem; items: string[] }>()
+  for (const item of items) {
+    const entry = orders.get(item.id) ?? { order: item, items: [] }
+    entry.items.push(`${item.item_name} × ${item.quantity}`)
+    orders.set(item.id, entry)
+  }
+  const label = (value: string) => value.replace(/_/g, ' ')
+  const methods: Record<string, string> = { cash: 'Cash', debit_card: 'Debit card', digital_wallet: 'Bank transfer', credit_card: 'Credit card' }
+  return <section>
+    <h3 className="mb-1 text-sm font-semibold">Sales & order activity</h3>
+    <p className="mb-3 text-xs text-muted-foreground">Includes pending orders. Only paid sales contribute to the income totals above.</p>
+    <div className="max-h-80 overflow-auto" tabIndex={0} aria-label="Sales and order activity">
+      <table className="w-full min-w-[680px] text-left text-sm">
+        <thead className="sticky top-0 bg-white text-xs text-muted-foreground"><tr>{['Date / reference', 'Items', 'Customer', 'Status', 'Amount'].map(text => <th key={text} className="p-2 font-medium">{text}</th>)}</tr></thead>
+        <tbody>{Array.from(orders.values()).map(({ order, items }) => <tr key={order.id} className="border-t align-top">
+          <td className="p-2"><div>{new Date(order.created_at).toLocaleString()}</div><div className="text-xs text-muted-foreground">{order.order_number}</div></td>
+          <td className="p-2">{items.map((name, index) => <div key={index}>{name}</div>)}</td>
+          <td className="p-2"><div>{order.customer_name || 'Walk-in customer'}</div><div className="text-xs text-muted-foreground">{order.customer_phone || 'No phone provided'}</div></td>
+          <td className="p-2"><div className="capitalize">{label(order.status)} · {label(order.fulfillment_status)}</div><div className={`text-xs ${order.status === 'cancelled' ? 'text-red-600' : order.paid >= order.total ? 'text-green-600' : 'text-amber-600'}`}>{order.status === 'cancelled' ? 'Cancelled' : order.paid >= order.total ? `${methods[order.payment_method] || 'Payment'} received` : order.paid > 0 ? 'Partially paid' : 'Payment pending'}</div></td>
+          <td className="p-2 whitespace-nowrap"><div>{formatMoney(order.total)}</div>{order.paid < order.total && order.status !== 'cancelled' && <div className="text-xs text-amber-600">Due {formatMoney(order.total - order.paid)}</div>}</td>
+        </tr>)}</tbody>
+      </table>
+      {orders.size === 0 && <p className="py-5 text-center text-sm text-muted-foreground">No orders in this period.</p>}
+    </div>
+  </section>
+}
+
 export function AdminDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today')
 
@@ -203,7 +246,7 @@ export function AdminDashboard() {
 
               {/* Breakdown Table */}
               {income.breakdown && income.breakdown.length > 0 && (
-                <div className="border rounded-lg">
+                <div className="max-h-64 overflow-auto border rounded-lg">
                   <div className="grid grid-cols-5 gap-4 p-4 bg-muted/50 font-medium text-sm">
                     <div>Period</div>
                     <div className="text-center">Orders</div>
@@ -211,7 +254,7 @@ export function AdminDashboard() {
                     <div className="text-center">Tax</div>
                     <div className="text-center">Net</div>
                   </div>
-                  {income.breakdown.slice(0, 10).map((item: IncomeBreakdownItem, index: number) => (
+                  {income.breakdown.map((item: IncomeBreakdownItem, index: number) => (
                     <div key={index} className="grid grid-cols-5 gap-4 p-4 border-t text-sm">
                       <div className="font-medium">
                         {new Date(item.period).toLocaleDateString()}
@@ -224,6 +267,7 @@ export function AdminDashboard() {
                   ))}
                 </div>
               )}
+              <SalesActivity items={income.activity ?? []} />
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

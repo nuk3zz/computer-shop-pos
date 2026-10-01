@@ -562,6 +562,44 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 			})
 		}
 
+		if err := rows.Err(); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to read income report"})
+			return
+		}
+		rows.Close()
+		// Include unpaid orders without counting them as collected income. Paid orders
+		// follow the report's payment date; unpaid orders follow their creation date.
+		detailWhere := strings.ReplaceAll(saleWhere, "paid.paid_at", "COALESCE(paid.paid_at,o.created_at)")
+		detailRows, err := db.Query(fmt.Sprintf(`
+			WITH paid AS (SELECT order_id, SUM(amount) total_paid, MAX(processed_at) paid_at FROM payments WHERE status='completed' GROUP BY order_id)
+			SELECT o.id, o.order_number, COALESCE(o.customer_name,''), COALESCE(o.customer_phone,''),
+			       o.status, o.fulfillment_status, o.total_amount, COALESCE(paid.total_paid,0), o.created_at,
+			       COALESCE(p.name,'Deleted item'), oi.quantity,
+			       COALESCE((SELECT payment_method FROM payments WHERE order_id=o.id AND status='completed' ORDER BY processed_at DESC LIMIT 1),'')
+			FROM orders o LEFT JOIN paid ON paid.order_id=o.id
+			LEFT JOIN order_items oi ON oi.order_id=o.id LEFT JOIN products p ON p.id=oi.product_id
+			WHERE %s ORDER BY o.created_at DESC, o.id, oi.created_at`, detailWhere))
+		if err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to fetch sales activity"})
+			return
+		}
+		defer detailRows.Close()
+		activity := make([]map[string]interface{}, 0)
+		for detailRows.Next() {
+			var id, number, customer, phone, status, fulfillment, name, method string
+			var total, paid float64
+			var created interface{}
+			var quantity sql.NullInt64
+			if err := detailRows.Scan(&id, &number, &customer, &phone, &status, &fulfillment, &total, &paid, &created, &name, &quantity, &method); err != nil {
+				c.JSON(500, gin.H{"success": false, "message": "Failed to read sales activity"})
+				return
+			}
+			activity = append(activity, map[string]interface{}{"id": id, "order_number": number, "customer_name": customer, "customer_phone": phone, "status": status, "fulfillment_status": fulfillment, "total": total, "paid": paid, "created_at": created, "item_name": name, "quantity": quantity.Int64, "payment_method": method})
+		}
+		if err := detailRows.Err(); err != nil {
+			c.JSON(500, gin.H{"success": false, "message": "Failed to read sales activity"})
+			return
+		}
 		result := map[string]interface{}{
 			"summary": map[string]interface{}{
 				"total_orders":  totalOrders,
@@ -572,6 +610,7 @@ func getIncomeReport(db *sql.DB) gin.HandlerFunc {
 				"cost_of_goods": totalNet - totalProfit,
 			},
 			"breakdown": report,
+			"activity":  activity,
 			"period":    period,
 		}
 

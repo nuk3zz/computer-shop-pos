@@ -49,7 +49,13 @@ func TestReturnedWarrantyRefundAdjustsRevenueAndProfit(t *testing.T) {
 	getIncomeReport(db)(incomeContext)
 	var incomeResponse struct {
 		Data struct {
-			Summary map[string]float64 `json:"summary"`
+			Summary  map[string]float64 `json:"summary"`
+			Activity []struct {
+				ItemName      string `json:"item_name"`
+				CustomerName  string `json:"customer_name"`
+				PaymentMethod string `json:"payment_method"`
+				Status        string `json:"status"`
+			} `json:"activity"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(income.Body.Bytes(), &incomeResponse); err != nil {
@@ -57,6 +63,9 @@ func TestReturnedWarrantyRefundAdjustsRevenueAndProfit(t *testing.T) {
 	}
 	if incomeResponse.Data.Summary["gross_income"] != 0 || incomeResponse.Data.Summary["gross_profit"] != -4000 || incomeResponse.Data.Summary["cost_of_goods"] != 4000 {
 		t.Fatalf("unexpected income totals: %#v", incomeResponse.Data.Summary)
+	}
+	if len(incomeResponse.Data.Activity) != 1 || incomeResponse.Data.Activity[0].ItemName != "Example drive" || incomeResponse.Data.Activity[0].CustomerName != "Example Customer" || incomeResponse.Data.Activity[0].PaymentMethod != "cash" || incomeResponse.Data.Activity[0].Status != "completed" {
+		t.Fatalf("unexpected sales activity: %#v", incomeResponse.Data.Activity)
 	}
 
 	sales := httptest.NewRecorder()

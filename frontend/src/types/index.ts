@@ -358,7 +358,7 @@ export interface Payment {
 }
 
 export interface ProcessPaymentRequest {
-  payment_method: 'cash' | 'credit_card' | 'debit_card' | 'digital_wallet';
+  payment_method: 'cash' | 'debit_card' | 'digital_wallet';
   amount: number;
   reference_number?: string;
 }
