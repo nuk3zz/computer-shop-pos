@@ -205,6 +205,7 @@ type UpdateFulfillmentRequest struct {
 type CreateOrderItem struct {
 	ProductID           uuid.UUID `json:"product_id"`
 	Quantity            int       `json:"quantity"`
+	SellingPrice        *float64  `json:"selling_price"`
 	SpecialInstructions *string   `json:"special_instructions"`
 }
 

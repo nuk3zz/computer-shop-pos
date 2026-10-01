@@ -11,7 +11,9 @@ Source: [`raw/2026-09-28-standalone-installers-backup-update-request.md`](../raw
 
 ## Default data layout
 
-`Documents/Universal Repair POS/`
+Windows/Linux: `Documents/Universal Repair POS/`.
+
+macOS: `~/Library/Application Support/Universal Repair POS/`. On first upgraded launch, an existing Documents installation is moved as a whole; a failed move stops startup to prevent an empty shop from replacing existing records. Once the destination exists, startup never inspects Documents. Explicit data-directory overrides remain supported.
 
 - `data/universal-repair-pos.db`: SQLite database.
 - `uploads/`: product, logo, and client images.
@@ -51,7 +53,7 @@ Source: [`raw/2026-09-29-built-in-updater-and-macos-port-conflict.md`](../raw/20
 
 - The Windows x64 Inno Setup package permits an installation-path choice, creates startup and browser shortcuts, and can add a TCP 3000 rule limited to Windows' private-network profile.
 - The Linux x64 Debian package configures a systemd service owned by the invoking non-root user, stores data under that user's Documents directory, and provides `universal-repair-pos-status` to print service health and detected URLs.
-- The universal macOS package installs Apple Silicon and Intel code plus a per-user LaunchAgent; it uses the same Documents data directory and starts at sign-in.
+- The universal macOS package installs Apple Silicon and Intel code plus a per-user LaunchAgent, stores data in Application Support, and starts at sign-in. Postinstall preserves a user-local launcher override when present.
 - Package uninstall metadata never owns or removes the Documents data directory.
 
 ## macOS migration and updates
@@ -60,12 +62,12 @@ Source: [`raw/2026-09-29-macos-first-run-port-conflict.md`](../raw/2026-09-29-ma
 
 - Do not run the Docker and native macOS editions on port 3000 simultaneously. A browser can otherwise reach the older Docker login while the fresh native SQLite installation is still waiting at `/setup`.
 - When moving this Mac from Docker to the native package, stop the Docker Compose stack without removing its volumes, then restart the native LaunchAgent and open the native address (`http://localhost:3210` beginning with v0.3.4).
-- Native macOS updates are installed by running the newer `.pkg` over the existing installation. The package replaces the binary and LaunchAgent only; `Documents/Universal Repair POS/` remains intact.
+- Native macOS updates are installed by running the newer `.pkg` over the existing installation. The package replaces the binary and LaunchAgent only; shop data remains intact, with legacy Documents storage migrated to Application Support.
 - The in-app updater selects the installer matching the running operating system, creates a verified safety backup, downloads the installer into the persistent updates folder, and verifies the SHA-256 digest published with the GitHub Release.
 - On macOS and Windows, **Download & Install** opens the verified local installer; the owner completes the normal Apple installer or Windows UAC prompt. The updater never attempts to bypass operating-system authorization.
 - Repeated update clicks reuse the existing installer only when both its byte size and SHA-256 digest match the release metadata. This keeps the installer path immutable while macOS Installer is waiting for administrator approval; replacing an open package causes macOS to reject it as changed.
 - A headless Linux server downloads and verifies the `.deb`, then displays the exact `sudo apt install <path>` command for the administrator to run.
-- macOS uses `http://localhost:3210` beginning with v0.3.4 to avoid collisions with development and Adobe extension processes that commonly claim port 3000. Existing Documents data paths do not change.
+- macOS uses `http://localhost:3210` beginning with v0.3.4 to avoid collisions with development and Adobe extension processes that commonly claim port 3000. Explicit data-directory overrides are preserved.
 
 ## Network modes
 

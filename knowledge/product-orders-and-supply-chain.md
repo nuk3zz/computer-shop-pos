@@ -6,6 +6,8 @@ Sources: [`raw/2026-09-29-product-sales-and-supply-chain-request.md`](../raw/202
 
 A product checkout is atomic: it validates available stock, saves or links the client, snapshots selling price and cost, decrements inventory, creates the fulfillment state, and records payment when money has already been received. If any operation fails, none of them are committed.
 
+Cart lines accept an optional `selling_price` per unit. Omitted/blank uses the catalog price; a value from zero to catalog price with at most two decimal places is snapshotted on the sale. Catalog price and saved acquisition cost are unchanged. Checkout subtotal and payments use the selected price, so existing reports and invoices inherit the actual sale value. Subtotal accumulation uses integer cents.
+
 ## Fulfillment and payment
 
 - **Instant sale** and **customer pickup** are paid and completed immediately.

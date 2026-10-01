@@ -83,7 +83,7 @@ sudo journalctl -u universal-repair-pos -n 100 --no-pager
 2. Open the package and complete installation. It installs a background server that starts automatically at sign-in and opens `http://localhost:3210/setup`.
 3. Complete owner setup. Choose **Same Wi-Fi / LAN** if an iPad or another trusted local device should connect.
 
-The package supports Apple Silicon and Intel Macs. Shop data remains under `Documents/Universal Repair POS`, separate from application files. Current public packages are not yet Developer ID-signed or notarized, so macOS may block the first opening; production-grade one-click distribution requires Apple signing credentials and notarization.
+The package supports Apple Silicon and Intel Macs. Shop data is stored in `~/Library/Application Support/Universal Repair POS`, separate from application files. Existing Documents data is migrated intact on upgrade; a migration failure stops startup instead of opening an empty shop. Current public packages are not yet Developer ID-signed or notarized, so macOS may block the first opening; production-grade one-click distribution requires Apple signing credentials and notarization.
 
 ### Backups, restore, and upgrades
 

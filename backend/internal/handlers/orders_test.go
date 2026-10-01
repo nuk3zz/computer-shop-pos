@@ -66,6 +66,53 @@ func TestCreateProductSaleCommitsStockClientPaymentAndWorkflowAtomically(t *test
 	}
 }
 
+func TestSaleSellingPriceOverride(t *testing.T) {
+	for _, test := range []struct {
+		name, price string
+		status      int
+		expected    float64
+	}{
+		{"blank uses catalog", "", 201, 15000},
+		{"discount", `,"selling_price":12000`, 201, 12000},
+		{"negative rejected", `,"selling_price":-1`, 400, 0},
+		{"above catalog rejected", `,"selling_price":16000`, 400, 0},
+		{"fractional cents rejected", `,"selling_price":12000.001`, 400, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db, userID, productID := productSaleTestDatabase(t, 1)
+			defer db.Close()
+			body := fmt.Sprintf(`{"order_type":"sale","items":[{"product_id":%q,"quantity":1%s}]}`, productID, test.price)
+			recorder := httptest.NewRecorder()
+			context, _ := gin.CreateTestContext(recorder)
+			context.Request = httptest.NewRequest(http.MethodPost, "/orders", bytes.NewBufferString(body))
+			context.Request.Header.Set("Content-Type", "application/json")
+			context.Set("user_id", userID)
+			context.Set("role", "admin")
+			context.Set("username", "owner")
+			NewOrderHandler(db).CreateOrder(context)
+			if recorder.Code != test.status {
+				t.Fatalf("got %d: %s", recorder.Code, recorder.Body.String())
+			}
+			if test.status == 201 {
+				var amount, price, cost, payment, catalog float64
+				if err := db.QueryRow(`SELECT o.total_amount, oi.unit_price, oi.unit_cost, p.amount, pr.price FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN payments p ON p.order_id=o.id JOIN products pr ON pr.id=oi.product_id`).Scan(&amount, &price, &cost, &payment, &catalog); err != nil {
+					t.Fatal(err)
+				}
+				if amount != test.expected || price != test.expected || payment != test.expected || cost != 10000 || catalog != 15000 {
+					t.Fatalf("incorrect discounted sale: amount=%v price=%v cost=%v payment=%v catalog=%v", amount, price, cost, payment, catalog)
+				}
+			} else {
+				var count, stock int
+				_ = db.QueryRow(`SELECT COUNT(*) FROM orders`).Scan(&count)
+				_ = db.QueryRow(`SELECT current_stock FROM inventory WHERE product_id=$1`, productID).Scan(&stock)
+				if count != 0 || stock != 1 {
+					t.Fatal("invalid price mutated sale or inventory")
+				}
+			}
+		})
+	}
+}
+
 func TestCreateProductSaleRollsBackWhenStockIsUnavailable(t *testing.T) {
 	db, userID, productID := productSaleTestDatabase(t, 0)
 	defer db.Close()

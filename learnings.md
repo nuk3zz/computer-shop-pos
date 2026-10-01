@@ -291,3 +291,10 @@
 - Replacement inventory is committed once when inspection finishes and the claim becomes ready for the customer. Moving the claim to returned must preserve the selected replacement and must not deduct stock again.
 - Warranty money is recognized when the claim reaches `returned`: customer refunds reduce Sales Collected and Gross Profit, shop-stock replacements reduce Gross Profit by saved cost, and supplier cash recoveries offset Gross Profit without being mislabeled as customer revenue.
 - Supplier replacements and shop-stock replacements have different inventory consequences, so the source must be explicit. Supplier waiting/outcome also belongs beside, not inside, the customer-facing resolution.
+
+## 2026-10-01 - macOS Documents permission recovery
+
+- TCC logs confirmed an existing Documents permission failed its stored code requirement despite the Settings toggle being enabled. The process was healthy with a single launch; repeated restart was not the cause.
+- macOS storage now defaults to Application Support. Existing data moves as one directory before SQLite opens; startup checks the destination first and fails on migration errors instead of creating a fresh shop.
+- Local recovery stopped the service, verified a complete recovery copy, moved data, and launched with an explicit Application Support path. Health and completed setup were verified afterwards. Installer postinstall preserves user-local launch configuration and avoids root access to protected Documents.
+- Installing the already-published v0.3.7 package selected the system launcher and initialized an empty Documents database after the local migration. Original Application Support records remained intact; reloading the user launcher restored v0.3.7 against them. Until the patched installer is released, older package postinstall scripts can undo the launcher selection.

@@ -245,7 +245,42 @@ func DefaultDataDir() string {
 			return preferredDataDir(filepath.Join(profile, "Documents"))
 		}
 	}
+	if runtime.GOOS == "darwin" {
+		path, err := macOSDataDir(home)
+		if err != nil {
+			log.Fatalf("Could not migrate existing macOS shop data: %v", err)
+		}
+		return path
+	}
 	return preferredDataDir(filepath.Join(home, "Documents"))
+}
+
+// Check Application Support first so normal launches never touch protected Documents.
+// Rename the entire stopped installation directory to retain SQLite sidecars,
+// uploads, backups, settings, and authentication identity together.
+func macOSDataDir(home string) (string, error) {
+	target := filepath.Join(home, "Library", "Application Support", "Universal Repair POS")
+	if _, err := os.Stat(target); err == nil {
+		return target, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	for _, name := range []string{"Universal Repair POS", "Computer Shop POS"} {
+		source := filepath.Join(home, "Documents", name)
+		if _, err := os.Stat(source); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+			return "", err
+		}
+		if err := os.Rename(source, target); err != nil {
+			return "", fmt.Errorf("move existing installation to Application Support: %w", err)
+		}
+		return target, nil
+	}
+	return target, nil
 }
 
 func preferredDataDir(documentsDir string) string {

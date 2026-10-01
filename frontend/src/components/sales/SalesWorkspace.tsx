@@ -16,6 +16,7 @@ import { Check, Minus, Package, Plus, Search, ShoppingCart, User, Wrench, X, Zoo
 interface CartLine {
   product: Product
   quantity: number
+  sellingPrice?: string
 }
 
 export function SalesWorkspace() {
@@ -68,6 +69,7 @@ export function SalesWorkspace() {
       items: cart.map((line) => ({
         product_id: line.product.id,
         quantity: line.quantity,
+        selling_price: line.sellingPrice?.trim() ? Number(line.sellingPrice) : undefined,
       })),
     }),
     onSuccess: (response) => {
@@ -118,11 +120,13 @@ export function SalesWorkspace() {
     }))
   }
 
-  const subtotal = cart.reduce((total, line) => total + line.product.price * line.quantity, 0)
+  const linePrice = (line: CartLine) => line.sellingPrice?.trim() ? Number(line.sellingPrice) : line.product.price
+  const validPrices = cart.every((line) => !line.sellingPrice?.trim() || (Number.isFinite(linePrice(line)) && linePrice(line) >= 0 && linePrice(line) <= line.product.price && /^\d+(\.\d{1,2})?$/.test(line.sellingPrice.trim())))
+  const subtotal = cart.reduce((total, line) => total + Math.round(linePrice(line) * 100) * line.quantity, 0) / 100
   const itemCount = cart.reduce((total, line) => total + line.quantity, 0)
   const hasServiceContact = customerName.trim().length > 0 && customerPhone.trim().length > 0
   const needsDeliveryContact = orderType === 'sale' && (fulfillmentType === 'delivery' || fulfillmentType === 'cash_on_delivery')
-  const canSubmit = cart.length > 0 && (orderType === 'sale' ? !needsDeliveryContact || hasServiceContact : hasServiceContact)
+  const canSubmit = cart.length > 0 && validPrices && (orderType === 'sale' ? !needsDeliveryContact || hasServiceContact : hasServiceContact)
 
   const selectCustomer = (customer: Customer) => {
     setSelectedCustomerId(customer.id)
@@ -364,14 +368,20 @@ export function SalesWorkspace() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{line.product.name}</div>
-                    <div className="text-sm text-muted-foreground">{line.quantity} × {formatMoney(line.product.price)}</div>
+                    <div className="text-sm text-muted-foreground">{line.quantity} × {formatMoney(linePrice(line))}</div>
+                    <label className="mt-1 block text-xs text-muted-foreground">
+                      Selling price per item (optional)
+                      <Input type="number" min="0" max={line.product.price} step="0.01" className="mt-1 h-8" aria-label={`Selling price for ${line.product.name}`} placeholder={String(line.product.price)} value={line.sellingPrice || ''} onChange={(event) => setCart((lines) => lines.map((entry) => entry.product.id === line.product.id ? { ...entry, sellingPrice: event.target.value } : entry))} />
+                    </label>
                   </div>
-                  <div className="font-semibold">{formatMoney(line.product.price * line.quantity)}</div>
+                  <div className="font-semibold">{formatMoney(linePrice(line) * line.quantity)}</div>
                 </div>
               ))}
             </div>
 
             <div className="space-y-3 border-t pt-4">
+              <p className="text-xs text-muted-foreground">Leave selling price blank to use the catalog price. Changes apply to this transaction only.</p>
+              {!validPrices && <p className="text-xs text-red-600">Enter a price from zero to the catalog price, with up to two decimal places.</p>}
               <div className="flex items-center justify-between text-lg font-bold"><span>Subtotal</span><span>{formatMoney(subtotal)}</span></div>
               <Button
                 size="lg"

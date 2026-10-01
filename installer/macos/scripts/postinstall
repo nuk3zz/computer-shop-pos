@@ -12,11 +12,13 @@ user_home="$(dscl . -read "/Users/$console_user" NFSHomeDirectory 2>/dev/null | 
 # Stop and remove the previous branded launcher while retaining and migrating data.
 launchctl bootout "gui/$user_id/io.github.computer-shop-pos" >/dev/null 2>&1 || true
 rm -f /Library/LaunchAgents/io.github.computer-shop-pos.plist /usr/local/bin/computer-shop-pos
-if [ -n "$user_home" ] && [ -d "$user_home/Documents/Computer Shop POS" ] && [ ! -e "$user_home/Documents/Universal Repair POS" ]; then
-  mv "$user_home/Documents/Computer Shop POS" "$user_home/Documents/Universal Repair POS"
-fi
+# Data migration belongs to the user process, after the previous server stops.
+# Avoid accessing protected Documents from the root installer.
 
 agent_path="/Library/LaunchAgents/io.github.universal-repair-pos.plist"
+if [ -f "$user_home/Library/LaunchAgents/io.github.universal-repair-pos.plist" ]; then
+  agent_path="$user_home/Library/LaunchAgents/io.github.universal-repair-pos.plist"
+fi
 launchctl bootout "gui/$user_id/io.github.universal-repair-pos" >/dev/null 2>&1 || true
 install_log=/tmp/universal-repair-pos-install.log
 loaded=false

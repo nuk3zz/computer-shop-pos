@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -354,7 +355,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	pricedItems := make([]pricedItem, 0, len(req.Items))
 
 	// Calculate totals and lock inventory rows before any stock is committed.
-	var subtotal float64
+	var subtotalCents int64
 	for _, item := range req.Items {
 		if item.Quantity <= 0 {
 			c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Item quantity must be at least one", Error: stringPtr("invalid_quantity")})
@@ -379,6 +380,14 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 			})
 			return
 		}
+		if item.SellingPrice != nil {
+			value := *item.SellingPrice
+			if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > price || math.Abs(value*100-math.Round(value*100)) > 0.000001 {
+				c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Message: "Selling price must be between zero and the catalog price, with at most two decimal places", Error: stringPtr("invalid_selling_price")})
+				return
+			}
+			price = float64(int64(math.Round(value*100))) / 100
+		}
 		if itemType == "product" {
 			var stock int
 			if err := tx.QueryRow("SELECT current_stock FROM inventory WHERE product_id = $1", item.ProductID).Scan(&stock); err != nil {
@@ -391,8 +400,9 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 			}
 		}
 		pricedItems = append(pricedItems, pricedItem{request: item, price: price, cost: cost, itemType: itemType})
-		subtotal += price * float64(item.Quantity)
+		subtotalCents += int64(math.Round(price*100)) * int64(item.Quantity)
 	}
+	subtotal := float64(subtotalCents) / 100
 
 	// Tax and service charge default to zero for the new shop.
 	taxRate := 0.0

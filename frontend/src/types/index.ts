@@ -334,6 +334,7 @@ export interface CreateOrderRequest {
 export interface CreateOrderItem {
   product_id: string;
   quantity: number;
+  selling_price?: number;
   special_instructions?: string;
 }
 

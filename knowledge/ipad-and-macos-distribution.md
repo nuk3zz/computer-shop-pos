@@ -14,7 +14,7 @@ Source: [`raw/2026-09-28-ipad-web-app-macos-installer-request.md`](../raw/2026-0
 
 - One universal package contains Apple Silicon and Intel code.
 - It installs the same native Go/SQLite server used by Windows and Linux, starts it as a per-user LaunchAgent, and opens the setup page.
-- Persistent data remains in `Documents/Universal Repair POS`; installing a newer package does not own or delete that directory.
+- Persistent macOS data lives in `~/Library/Application Support/Universal Repair POS`; an upgrade migrates the former Documents directory together with backups and uploads. Installing a newer package does not own or delete shop data.
 - Public unsigned builds can be produced without an Apple Developer membership, but Gatekeeper may require manual approval. Normal one-click public distribution requires Developer ID signing and Apple notarization.
 
 ## Native iPad boundary
