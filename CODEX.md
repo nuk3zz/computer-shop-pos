@@ -43,3 +43,18 @@ The product name is **Universal Repair POS**. Do not use the name of one shop ca
 - For database changes, test a clean initialization and document migration implications.
 - Inspect `git diff --check`, `git diff --stat`, and the final diff before committing.
 - Do not commit or push unless the user requests it or the active task explicitly includes it.
+
+<!-- maintenance-policy:start -->
+## Maintenance cadence (owner approved 2026-10-01)
+
+This section overrides earlier per-session documentation and automatic commit/push/deploy cadence. Preserve project safety, ownership, and verification rules.
+
+- Before coding, read CODEX.md and relevant/recent learnings; search older entries only when needed. Read only knowledge pages relevant to the task.
+- Small cosmetic, wording, and routine fixes: implement and verify; do not update every Markdown file or add routine session-log entries.
+- Immediately update only affected docs for security, outages, data integrity, breaking contracts, migrations, configuration/deployment changes, or facts needed to operate safely. Keep ownership handoffs accurate immediately.
+- Save substantial approved plans in a dedicated knowledge plan page before implementation. Process raw sources needed for the current task immediately; defer unrelated sources to the weekly batch and preserve originals.
+- Consolidate noncritical documentation and significant reusable learnings on Friday at 21:00 Asia/Colombo. Use the Git diff and existing task evidence; add a short pending note only when a decision or verification result would otherwise be lost. Skip unchanged projects.
+- Routine commits and GitHub pushes wait for that batch. Explicit owner requests to commit, push, release, or deploy override the cadence. Critical fixes go immediately after appropriate validation within existing release authorization; criticality alone does not authorize production access.
+- Weekly GitHub sync is owner-authorized for completed, verified, non-secret work. Inspect the full diff and both `git diff --cached --stat` and `git diff --cached --name-status`; isolate intended paths. Never sweep in unfinished, unrelated, or another agent's work. Do not force-push or overwrite changes.
+- A push may trigger deployment. Check CI/release rules first; defer pushes that would deploy unfinished work. Routine deployment waits for the batch and still requires project-specific authorization and validation. Leave uncertain changes pending and report the precise blocker.
+<!-- maintenance-policy:end -->
